@@ -7,6 +7,16 @@ SETTINGS="$CLAUDE_DIR/settings.json"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_DIR="$CLAUDE_DIR/backups/cc-config-$TIMESTAMP"
 
+# Machine-local hooks (e.g. peon-ping) are not in hooks.portable.json. The
+# CC-Switch Common Snippet --apply in sync_cc_switch_common() can rebuild
+# settings.json and wipe them, so snapshot the hooks subtree first and re-merge
+# it after the sync. Only the hooks subtree is captured — never the whole file.
+HOOKS_SNAPSHOT=""
+cleanup_hooks_snapshot() {
+  [[ -n $HOOKS_SNAPSHOT ]] && rm -f -- "$HOOKS_SNAPSHOT"
+}
+trap cleanup_hooks_snapshot EXIT
+
 printf 'Claude config directory: %s\n' "$CLAUDE_DIR"
 printf 'Portable config repository: %s\n' "$REPO_DIR"
 
@@ -72,6 +82,31 @@ sync_cc_switch_common() {
   printf 'CC-Switch Claude Common Snippet synced from: %s\n' "$REPO_DIR/settings.portable.json"
   printf 'NOTE: The cc-config wrapper restores portable fields after successful Provider hot-switches.\n'
 }
+
+# Snapshot the current machine's local hooks before the CC-Switch Common
+# Snippet --apply, which may rebuild settings.json and drop hooks that are not
+# in hooks.portable.json. Store only the hooks subtree (0600), never the full
+# settings.json, so no Provider/API/model state lands in the temp file.
+if [[ -f $SETTINGS ]]; then
+  HOOKS_SNAPSHOT=$(mktemp "${TMPDIR:-/tmp}/cc-config-hooks.XXXXXX.json") || HOOKS_SNAPSHOT=""
+  if [[ -n $HOOKS_SNAPSHOT ]]; then
+    chmod 0600 "$HOOKS_SNAPSHOT"
+    python3 - "$SETTINGS" "$HOOKS_SNAPSHOT" <<'PY'
+import json, os, sys
+settings_path, out_path = sys.argv[1], sys.argv[2]
+try:
+    settings = json.load(open(settings_path, encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    sys.exit(0)
+hooks = settings.get("hooks")
+if isinstance(hooks, dict) and hooks:
+    with open(out_path, "w", encoding="utf-8") as handle:
+        json.dump({"version": 1, "hooks": hooks}, handle, ensure_ascii=False, indent=2)
+else:
+    os.unlink(out_path)
+PY
+  fi
+fi
 
 sync_cc_switch_common
 
@@ -241,6 +276,25 @@ install_hooks() {
 }
 
 install_mcp
+
+# Re-merge the pre-install machine-local hooks (peon-ping or any other local
+# command hook) that the Common Snippet --apply may have wiped. Merge — never
+# overwrite — so hooks the sync added are preserved and nothing is duplicated;
+# install_hooks() below then ensures the portable hooks.portable.json (Serena)
+# are present too. No hook contents or credentials are printed.
+if [[ -n $HOOKS_SNAPSHOT && -f $HOOKS_SNAPSHOT ]]; then
+  if python3 "$REPO_DIR/scripts/merge-settings.py" merge-hooks \
+    --hooks "$HOOKS_SNAPSHOT" \
+    --target "$SETTINGS" \
+    --backup-dir "$BACKUP_DIR"; then
+    printf 'Local hooks restored after CC-Switch Common Snippet sync.\n'
+  else
+    printf 'WARNING: local hooks could not be restored after CC-Switch Common Snippet sync.\n' >&2
+  fi
+  rm -f -- "$HOOKS_SNAPSHOT"
+  HOOKS_SNAPSHOT=""
+fi
+
 install_hooks
 
 printf '\nPortable Claude Code configuration installed.\n'

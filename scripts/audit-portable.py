@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-EXCLUDED_DIRS = {".git", ".serena", "__pycache__", ".local-backups"}
+EXCLUDED_DIRS = {".git", ".serena", ".codegraph", "__pycache__", ".local-backups"}
 FORBIDDEN_NAMES = {
     ".claude.json",
     "settings.json",
