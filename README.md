@@ -4,6 +4,23 @@
 
 CC-Switch 继续负责 Provider、API、Base URL、代理、凭证和模型路由。
 
+## 推荐使用
+
+### 主力机器同步到 Git
+
+在 `~/cc-config` 中启动 Claude Code，然后：
+
+> 请按 AGENT_SYNC.md 同步当前 Claude Code 配置到 cc-config。
+
+### 新机器从 Git 恢复
+
+克隆仓库后，在 `~/cc-config` 中启动 Claude Code，然后：
+
+> 请按 AGENT_SETUP.md 帮我完成这台机器的 Claude Code 环境迁移。
+
+- `AGENT_SYNC.md`：主力机器 → Git
+- `AGENT_SETUP.md`：Git → 新机器
+
 ## 新机器
 
 ```bash
