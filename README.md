@@ -1,52 +1,213 @@
 # Claude Code portable config
 
-Portable Claude Code behavior only. CC-Switch remains responsible for Provider, API, Base URL, proxy, credentials, and model routing.
+用于在新 WSL / Ubuntu / Linux 机器上恢复核心工作环境的 Claude Code 便携配置。
 
-## New machine
+CC-Switch 继续负责 Provider、API、Base URL、代理、凭证和模型路由。
+
+## 新机器
 
 ```bash
-git clone <private-repo> ~/cc-config
+git clone https://github.com/xcg124110023416/cc-config.git ~/cc-config
 cd ~/cc-config
 ./install.sh
+./doctor.sh
 claude
 ```
 
-The installer uses `CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`, displays the detected directory, backs up every existing item it changes, validates and syncs `settings.portable.json` to the Claude Common Snippet through the official `cc-switch` CLI when available, merges the same approved behavior fields into the live settings file, links each managed Skill separately, and offers to install missing plugins. It never imports `.claude.json`, credentials, sessions, history, projects, caches, or provider settings.
-
-`settings.portable.json` is the only source of truth for portable behavior. Do not edit or import the generated CC-Switch Common Snippet manually. Each Claude Provider should have **Attach Common Config** enabled.
-
-For CC-Switch proxy takeover mode, `install.sh` also puts `~/cc-config/bin` first in Bash's PATH. The repository wrapper leaves the official `cc-switch` binary in place, forwards ordinary commands unchanged, and runs only the whitelist settings merge after a successful Claude `use` or `provider switch`. This compensates for CC-Switch 5.10.x hot-switches that bypass the normal Common Config live-file merge. Wrapper-created settings backups are limited to the latest 20 files under `$CLAUDE_DIR/backups/cc-config-wrapper/`.
-
-## Recovery
+安装器使用：
 
 ```bash
-# Bypass the wrapper and call the official CC-Switch directly.
-~/.local/bin/cc-switch
-
-# Re-sync Common Snippet and restore portable configuration.
-cd ~/cc-config
-./install.sh
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 ```
 
-`claude-hud` is installed from its marketplace when approved. Its status line discovers both the active Claude config directory and `node` at runtime.
+如果设置了 `CLAUDE_CONFIG_DIR`，则使用该目录；否则回退到 `~/.claude`。
 
-MCP is intentionally manual in version 1. Restore these on a new machine if needed, using machine-appropriate commands and paths:
+## 恢复内容
+
+本仓库恢复：
+
+- 全局 `CLAUDE.md`
+- 便携 Skills
+- 便携 Claude 设置
+- Claude HUD / statusLine
+- 托管插件
+- 便携 MCP Servers
+- 便携 Serena hooks
+- CC-Switch Common Config
+- CC-Switch 兼容 wrapper
+
+当前便携 MCP Servers：
 
 - `codegraph`
 - `serena`
 - `sciverse`
 
-The peon-ping hooks are intentionally excluded because the current setup depends on WSL, Windows PowerShell, and machine-specific paths.
+当前便携 hooks：
 
-## Update from the primary machine
+- `SessionStart -> serena-hooks activate --client=claude-code`
+- `SessionEnd -> serena-hooks cleanup --client=claude-code`
+
+## 配置归属
+
+`settings.portable.json` 是便携 Claude 行为的唯一真源。
+
+CC-Switch 管理：
+
+- Provider
+- API / 认证
+- Base URL
+- 代理
+- 模型选择与路由
+- `ENABLE_TOOL_SEARCH`
+
+本仓库刻意不保存 Provider 凭证或 API Key。
+
+## CC-Switch wrapper
+
+`install.sh` 会把 `~/cc-config/bin` 放到 PATH 中真实 CC-Switch 二进制之前。
+
+官方二进制不会被修改。
+
+wrapper 会在以下操作后恢复便携设置和 hooks：
+
+```bash
+cc-switch use <provider>
+cc-switch provider switch <provider>
+```
+
+也会在退出交互式 CC-Switch TUI 后恢复。
+
+普通 CC-Switch 命令原样透传。
+
+绕过 wrapper：
+
+```bash
+~/.local/bin/cc-switch
+```
+
+## 插件
+
+托管的插件集合保存在 `plugins.json`。
+
+当前插件：
+
+- `claude-hud@claude-hud`
+- `andrej-karpathy-skills@karpathy-skills`
+- `sciverse@sciverse`
+- `obsidian@obsidian-skills`
+
+插件缓存不进入 Git。
+
+## MCP
+
+便携 MCP 定义保存在 `mcp.portable.json`。
+
+通过官方 Claude MCP CLI 恢复。
+
+本仓库不复制完整的 `.claude.json`。
+
+SciVerse 凭证不迁移。新机器需要自备：
+
+```text
+~/.config/sciverse/token
+```
+
+## Hooks
+
+便携 hooks 保存在 `hooks.portable.json`。
+
+它们会合并进已有的 Claude 设置，且不会删除无关的本机 hooks。
+
+## peon-ping
+
+peon-ping 是机器相关的，普通便携安装不会安装它。
+
+其 WSL 配置保存在：
+
+```text
+profiles/wsl/peon-ping/
+```
+
+如果兼容的 WSL 机器需要，请按照该 profile 的 README 操作。
+
+## doctor
+
+运行：
+
+```bash
+./doctor.sh
+```
+
+检查必需和可选依赖。
+
+项目专属检查：
+
+```bash
+./doctor.sh --project /path/to/project
+```
+
+`doctor.sh` 只检查依赖，不安装软件。
+
+## 从主力机器更新
 
 ```bash
 cd ~/cc-config
 ./update.sh
+
 git status
 git add .
-git commit
+git commit -m "Update Claude Code config"
 git push
 ```
 
-`update.sh` only offers new whitelist file items such as Skills, agents, commands, rules, hooks, output styles, and keybindings. It never imports portable settings back from live settings or from the generated Common Snippet, and it does not run Git commands. Edit `settings.portable.json` directly, then run `./install.sh` to validate, sync, and apply it.
+需要时直接编辑这些便携 manifest：
+
+```text
+settings.portable.json
+hooks.portable.json
+mcp.portable.json
+plugins.json
+```
+
+然后运行：
+
+```bash
+./install.sh
+./doctor.sh
+```
+
+再提交。
+
+## 刻意不迁移的内容
+
+以下内容刻意保持本机：
+
+- Provider 凭证
+- API Key / token
+- OAuth 状态
+- CC-Switch 数据库
+- 完整 `settings.json`
+- 完整 `.claude.json`
+- sessions
+- history
+- projects
+- caches
+- 插件缓存
+- 其他机器相关的运行状态
+
+"不同步"不等于"应该删除"。
+
+## 恢复
+
+重新应用便携配置：
+
+```bash
+cd ~/cc-config
+./install.sh
+```
+
+绕过 CC-Switch wrapper：
+
+```bash
+~/.local/bin/cc-switch
+```
