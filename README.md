@@ -169,6 +169,12 @@ git commit -m "Update Claude Code config"
 git push
 ```
 
+也可以让 Agent 按同步协议处理：
+
+> 在 Claude Code 中发起：请按 AGENT_SYNC.md 同步当前 Claude Code 配置到 cc-config。
+
+Agent 会盘点差异、按类型更新 portable manifest、验证并提交推送。
+
 需要时直接编辑这些便携 manifest：
 
 ```text
