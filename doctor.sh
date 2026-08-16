@@ -64,8 +64,7 @@ else
   status_ok=1
 fi
 
-check 'MinerU' mineru
-check 'magic-pdf' magic-pdf
+check 'MinerU CLI' mineru-open-api
 
 printf '\nPortable skills CLI dependencies\n'
 printf -- '--------------------------------\n'
@@ -78,7 +77,7 @@ for skill in hv-analysis khazix-writer mineru neat-freak paper-translator; do
     printf '%-20s %s\n' "hv-analysis" "$(command -v python3 >/dev/null 2>&1 && printf OK || printf 'MISSING python3')"
   fi
   if [[ $skill == mineru ]]; then
-    if command -v mineru >/dev/null 2>&1 || command -v magic-pdf >/dev/null 2>&1; then
+    if command -v mineru-open-api >/dev/null 2>&1; then
       printf '%-20s OK\n' 'mineru'
     else
       printf '%-20s MISSING\n' 'mineru'
@@ -116,7 +115,7 @@ fi
 
 if [[ -n $PROJECT_DIR ]]; then
   printf '\nProject state: %s\n' "$PROJECT_DIR"
-  printf '------------------\n'
+  printf -- '------------------\n'
   if [[ -d $PROJECT_DIR/.codegraph ]]; then
     printf '%-20s OK\n' '.codegraph/'
   else
