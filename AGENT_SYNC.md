@@ -55,6 +55,11 @@
   跨机器恢复；确认是则从 `plugins.json` 移除，未确认前保留。仅移除 manifest 不会自动清理其他机器上
   的本地插件；是否清理当前机器由用户明确要求后再执行。
 
+- **启用状态双清单一致性**：`plugins.json` 与 `settings.portable.json` 的 `enabledPlugins` 必须同步维护。
+  新增 / 移除插件时，同步在 `settings.portable.json` 的 `enabledPlugins` 加 / 删对应条目（启用写 `true`）。
+  原因：Provider 切换时 cc-switch wrapper 只从 `settings.portable.json` 恢复 `enabledPlugins`；
+  只更新 `plugins.json` 能保证安装，但无法保证切换后启用状态被恢复。
+
 - 不同步插件缓存；不固定本机缓存路径；默认不锁定具体版本（除非未来明确采用版本锁定策略）。
 
 ### MCP
@@ -76,6 +81,9 @@
   - 只把真正应该跨机器存在的 hook 写入 `hooks.portable.json`；
   - 本机已移除且确认不再需要的 portable hook → 从 manifest 移除；
   - 临时 / 机器专属 hook 不混入。
+- **portable / local 判断启发式**：命令含机器绝对路径（Windows 路径、`/home/<user>` 等）、环境专属
+  二进制或凭证 → 本机 local，留在 settings.json，由 cc-switch wrapper 的 pre-switch snapshot 保护；
+  纯通用命令（如 `serena-hooks`）→ 可写入 `hooks.portable.json`。
 - 不复制完整 `settings.json`。
 
 ### Settings
@@ -85,6 +93,12 @@
   - 判断是否属于 portable、是否属 CC-Switch Provider / API / model 管理范围；
   - 只有符合 portable whitelist 的才更新 `settings.portable.json`；
   - 本机已移除且确认不再需要跨机器保持的 portable 设置 → 从 manifest 移除。
+- **白名单外设置**：遇到用户明确想跨机器保持、但不在 `merge-settings.py` 白名单
+  （`ALLOWED_TOP_LEVEL` / `ALLOWED_ENV`）内的设置时：
+  - 清晰、无机器信息、无 provider / 凭证属性的 → 可考虑**保守扩充白名单**；
+  - 含 Provider / API / Base URL / model / route / token 等 → 拒绝，归 CC-Switch；
+  - 拿不准时向用户确认，不要静默跳过；
+  - 若新增的是 top-level 键，同步检查 `command_extract` 是否也要纳入该键。
 - Provider / API / Base URL / token / model routing 等继续归 CC-Switch，不进入 portable manifest。
 
 ### 环境相关组件
