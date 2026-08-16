@@ -47,6 +47,8 @@ printf '  - link CLAUDE.md and each repository-managed whitelist item individual
 printf '  - install an idempotent shell PATH block so %s/bin precedes the real cc-switch\n' "$REPO_DIR"
 printf '  - move conflicting existing items into %s before linking\n' "$BACKUP_DIR"
 printf '  - check the plugin manifest and offer to install missing plugins\n'
+printf '  - register portable MCP servers through the official claude mcp CLI\n'
+printf '  - merge portable hooks into %s (serena; never deletes target hooks)\n' "$SETTINGS"
 if ! confirm 'Apply this portable configuration?'; then
   printf 'Cancelled; no configuration files were changed.\n'
   exit 0
@@ -211,6 +213,35 @@ PY
 }
 
 install_plugins
+
+install_mcp() {
+  if ! command -v claude >/dev/null 2>&1; then
+    printf '\nWARNING: claude is not on PATH; skipped MCP registration.\n' >&2
+    return
+  fi
+  printf '\nRegistering portable MCP servers via the official Claude CLI...\n'
+  python3 "$REPO_DIR/scripts/install-mcp.py" \
+    --manifest "$REPO_DIR/mcp.portable.json" \
+    --claude-bin "$(command -v claude)" \
+    --scope user \
+    --apply || true
+}
+
+install_hooks() {
+  printf '\nMerging portable hooks into %s...\n' "$SETTINGS"
+  if ! command -v serena-hooks >/dev/null 2>&1; then
+    printf 'WARNING: serena-hooks is missing; portable serena hooks were not merged.\n' >&2
+    printf '         Run ./doctor.sh after installing serena-hooks.\n' >&2
+    return
+  fi
+  python3 "$REPO_DIR/scripts/merge-settings.py" merge-hooks \
+    --hooks "$REPO_DIR/hooks.portable.json" \
+    --target "$SETTINGS" \
+    --backup-dir "$BACKUP_DIR"
+}
+
+install_mcp
+install_hooks
 
 printf '\nPortable Claude Code configuration installed.\n'
 printf 'Claude config directory: %s\n' "$CLAUDE_DIR"

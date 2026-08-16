@@ -187,6 +187,101 @@ def command_merge(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_merge_hooks(args: argparse.Namespace) -> int:
+    source = load_object(args.hooks)
+    source_hooks = source.get("hooks")
+    if not isinstance(source_hooks, dict):
+        raise PortableSettingsError("hooks manifest must contain a hooks object")
+
+    target = load_object(args.target, missing_ok=True)
+
+    def key_of(handler: Any) -> str | None:
+        if (
+            isinstance(handler, dict)
+            and handler.get("type") == "command"
+            and isinstance(handler.get("command"), str)
+        ):
+            return handler["command"]
+        return None
+
+    # Structural validation with the official Claude Code schema.
+    for event, groups in source_hooks.items():
+        if not isinstance(groups, list):
+            raise PortableSettingsError(f"event {event} must be a list of matcher groups")
+        for group in groups:
+            if not isinstance(group, dict):
+                raise PortableSettingsError(f"hook group must be an object in event {event}")
+            handlers = group.get("hooks")
+            if not isinstance(handlers, list):
+                raise PortableSettingsError(f"hook group must have a hooks list in event {event}")
+            if not isinstance(group.get("matcher", ""), str):
+                raise PortableSettingsError(f"hook matcher must be a string in event {event}")
+            for handler in handlers:
+                if key_of(handler) is None:
+                    raise PortableSettingsError(
+                        "only command hooks are supported in the portable hooks manifest: "
+                        f"event {event}"
+                    )
+
+    current_hooks = target.get("hooks")
+    merged_hooks = dict(current_hooks) if isinstance(current_hooks, dict) else {}
+    changed = False
+
+    for event, groups in source_hooks.items():
+        existing_groups = merged_hooks.get(event, [])
+        existing_set: set[tuple[str, str]] = set()
+        for group in existing_groups:
+            if not isinstance(group, dict):
+                continue
+            matcher = group.get("matcher", "")
+            for handler in group.get("hooks", []):
+                command = key_of(handler)
+                if command is not None:
+                    existing_set.add((matcher, command))
+
+        for group in groups:
+            matcher = group.get("matcher", "")
+            new_handlers = []
+            for handler in group["hooks"]:
+                command = key_of(handler)
+                assert command is not None
+                if (matcher, command) not in existing_set:
+                    existing_set.add((matcher, command))
+                    new_handlers.append(handler)
+            if not new_handlers:
+                continue
+            target_group = next(
+                (
+                    candidate
+                    for candidate in existing_groups
+                    if isinstance(candidate, dict)
+                    and candidate.get("matcher", "") == matcher
+                    and isinstance(candidate.get("hooks"), list)
+                ),
+                None,
+            )
+            if target_group is not None:
+                target_group["hooks"].extend(new_handlers)
+            else:
+                existing_groups.append({"matcher": matcher, "hooks": new_handlers})
+            changed = True
+
+        merged_hooks[event] = existing_groups
+
+    if not changed:
+        print(f"Hooks already current: {args.target}")
+        return 0
+
+    existing_mode = stat.S_IMODE(args.target.stat().st_mode) if args.target.exists() else None
+    if args.target.exists():
+        destination = backup_path(args.target, args.backup_dir)
+        print(f"Hooks backup: {destination}")
+    target["hooks"] = merged_hooks
+    atomic_write(args.target, target, existing_mode)
+    print(f"Hooks merged: {args.target}")
+    return 0
+
+
 def command_extract(args: argparse.Namespace) -> int:
     source = load_object(args.source)
     baseline = load_object(args.baseline)
@@ -247,6 +342,12 @@ def build_parser() -> argparse.ArgumentParser:
     merge.add_argument("--target", type=Path, required=True)
     merge.add_argument("--backup-dir", type=Path, required=True)
     merge.set_defaults(func=command_merge)
+
+    merge_hooks = subparsers.add_parser("merge-hooks")
+    merge_hooks.add_argument("--hooks", type=Path, required=True)
+    merge_hooks.add_argument("--target", type=Path, required=True)
+    merge_hooks.add_argument("--backup-dir", type=Path, required=True)
+    merge_hooks.set_defaults(func=command_merge_hooks)
 
     extract = subparsers.add_parser("extract")
     extract.add_argument("--source", type=Path, required=True)

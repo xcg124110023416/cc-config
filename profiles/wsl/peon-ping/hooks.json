@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_CONFIG_DIR='C:\\Users\\<WINUSER>\\.claude' powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\scripts\\hook-handle-use.ps1'"
+          },
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File 'C:\\Users\\<WINUSER>\\.claude\\hooks\\peon-ping\\peon.ps1'"
+          }
+        ]
+      }
+    ]
+  }
+}

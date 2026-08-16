@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Portable SciVerse MCP launcher. Sits first on PATH (via ~/cc-config/bin) and
+# resolves the real server dynamically. Credentials are never migrated and are
+# never echoed or written here.
+
+credential_file="${XDG_CONFIG_HOME:-$HOME/.config}/sciverse/token"
+if [[ ! -r "$credential_file" ]]; then
+  printf 'SciVerse credential file is missing or unreadable: %s\n' "$credential_file" >&2
+  printf 'Re-authenticate on this machine to create it; credentials are not migrated.\n' >&2
+  exit 2
+fi
+
+server=$(command -v sciverse-mcp-server 2>/dev/null || true)
+if [[ -z $server ]]; then
+  printf 'ERROR: sciverse-mcp-server not found on PATH.\n' >&2
+  printf 'Install SciVerse MCP server first, then run ./doctor.sh.\n' >&2
+  exit 127
+fi
+
+SCIVERSE_API_TOKEN=$(<"$credential_file")
+export SCIVERSE_API_TOKEN
+exec "$server" "$@"

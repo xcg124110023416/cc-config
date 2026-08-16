@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "scope": "user",
+  "servers": [
+    {
+      "name": "codegraph",
+      "transport": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "note": "需要目标项目存在 .codegraph/ 索引；doctor.sh --project 可检查"
+    },
+    {
+      "name": "serena",
+      "transport": "stdio",
+      "command": "serena",
+      "args": ["start-mcp-server", "--context=claude-code", "--project-from-cwd"],
+      "note": "首次使用需 serena 扫描项目"
+    },
+    {
+      "name": "sciverse",
+      "transport": "stdio",
+      "command": "sciverse-mcp",
+      "args": [],
+      "requires": ["sciverse-mcp-server"],
+      "requiresAuth": "token",
+      "note": "凭证文件 $HOME/.config/sciverse/token 需目标机重新获取，不做迁移"
+    }
+  ]
+}

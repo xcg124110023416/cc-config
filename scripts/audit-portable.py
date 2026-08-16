@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -89,6 +90,81 @@ def display(path: Path, root: Path) -> str:
         return str(path)
 
 
+FORBIDDEN_MANIFEST_KEY = re.compile(
+    r"(token|secret|credential|oauth|api[-_ ]?key|header)", re.IGNORECASE
+)
+
+
+def validate_mcp_manifest(path: Path) -> list[str]:
+    findings: list[str] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid JSON in {path.name}: {exc}"]
+    servers = data.get("servers")
+    if not isinstance(servers, list):
+        return [f"{path.name}: servers must be a list"]
+    for server in servers:
+        if not isinstance(server, dict):
+            findings.append(f"{path.name}: server must be an object")
+            continue
+        name = server.get("name", "<unnamed>")
+        command = server.get("command")
+        if not isinstance(command, str) or not command:
+            findings.append(f"{path.name}: server {name} missing command")
+        for key in server:
+            if FORBIDDEN_MANIFEST_KEY.search(key):
+                findings.append(f"{path.name}: server {name} has forbidden key {key}")
+        for text in [command, *server.get("args", [])]:
+            if not isinstance(text, str):
+                continue
+            for label, pattern in MACHINE_PATHS:
+                if pattern.search(text):
+                    findings.append(f"{path.name}: {label} in server {name}")
+    return findings
+
+
+def validate_hooks_manifest(path: Path) -> list[str]:
+    findings: list[str] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid JSON in {path.name}: {exc}"]
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return [f"{path.name}: hooks must be an object"]
+    for event, groups in hooks.items():
+        if not isinstance(groups, list):
+            findings.append(f"{path.name}: event {event} must be a list")
+            continue
+        for group in groups:
+            if not isinstance(group, dict):
+                findings.append(f"{path.name}: event {event} group must be an object")
+                continue
+            if not isinstance(group.get("matcher", ""), str):
+                findings.append(f"{path.name}: event {event} matcher must be a string")
+            handlers = group.get("hooks")
+            if not isinstance(handlers, list):
+                findings.append(f"{path.name}: event {event} group missing hooks list")
+                continue
+            for handler in handlers:
+                if (
+                    not isinstance(handler, dict)
+                    or handler.get("type") != "command"
+                    or not isinstance(handler.get("command"), str)
+                ):
+                    findings.append(f"{path.name}: event {event} has non-command hook")
+                else:
+                    command = handler["command"]
+                    for label, pattern in SECRET_PATTERNS:
+                        if pattern.search(command):
+                            findings.append(f"{path.name}: possible {label} in event {event}")
+                    for label, pattern in MACHINE_PATHS:
+                        if pattern.search(command):
+                            findings.append(f"{path.name}: {label} in event {event}")
+    return findings
+
+
 def audit(root: Path, settings_validator: Path | None) -> list[str]:
     findings: list[str] = []
     root = root.resolve()
@@ -127,6 +203,14 @@ def audit(root: Path, settings_validator: Path | None) -> list[str]:
         for label, pattern in MACHINE_PATHS:
             if pattern.search(text):
                 findings.append(f"{label}: {shown}")
+
+    for manifest_name, validator in (
+        ("mcp.portable.json", validate_mcp_manifest),
+        ("hooks.portable.json", validate_hooks_manifest),
+    ):
+        manifest_path = root / manifest_name
+        if manifest_path.exists():
+            findings.extend(validator(manifest_path))
 
     portable = root / "settings.portable.json"
     if settings_validator and portable.exists():

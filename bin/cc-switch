@@ -4,6 +4,7 @@ set -u
 SELF=$(readlink -f -- "${BASH_SOURCE[0]}")
 REPO_DIR=$(cd -- "$(dirname -- "$SELF")/.." && pwd -P)
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+WRAPPER_BACKUP_DIR="$CLAUDE_DIR/backups/cc-config-wrapper"
 
 rotate_wrapper_backups() {
   local backup_dir=$1
@@ -45,10 +46,15 @@ REAL_CC_SWITCH=$(find_real_cc_switch) || {
   exit 127
 }
 
-should_merge_claude_settings() {
+# Classify the invocation:
+#   passthrough      -> ordinary/read-only subcommand; forward unchanged
+#   explicit_switch  -> `use` / `provider switch` for Claude
+#   interactive      -> bare `cc-switch` or `cc-switch interactive` (TUI)
+classify_mode() {
   local app=claude
   local -a positional=()
-  local index=1 argument
+  local -a flag_only=()
+  local index=1 argument help_or_version=0
 
   while ((index <= $#)); do
     argument=${!index}
@@ -60,43 +66,97 @@ should_merge_claude_settings() {
         ;;
       --app=*) app=${argument#--app=} ;;
       -v|--verbose) ;;
+      -h|--help|-V|--version) help_or_version=1 ;;
       --) ;;
       *) positional+=("$argument") ;;
     esac
     ((index++))
   done
+  # shellcheck disable=SC2034
+  flag_only=()
 
-  [[ $app == claude ]] || return 1
-  [[ ${positional[0]:-} == use ]] && return 0
-  [[ ${positional[0]:-} == provider && ${positional[1]:-} == switch ]]
+  if ((${#positional[@]})); then
+    case "${positional[0]}" in
+      use)
+        if [[ $app == claude ]]; then
+          printf 'explicit_switch\n'
+        else
+          printf 'passthrough\n'
+        fi
+        return 0
+        ;;
+      provider)
+        if [[ ${positional[1]:-} == switch && $app == claude ]]; then
+          printf 'explicit_switch\n'
+        else
+          printf 'passthrough\n'
+        fi
+        return 0
+        ;;
+      interactive) printf 'interactive\n'; return 0 ;;
+      help) printf 'passthrough\n'; return 0 ;;
+      *) printf 'passthrough\n'; return 0 ;;
+    esac
+  fi
+
+  if ((help_or_version == 1)); then
+    printf 'passthrough\n'
+    return 0
+  fi
+  printf 'interactive\n'
 }
 
-if ! should_merge_claude_settings "$@"; then
-  exec "$REAL_CC_SWITCH" "$@"
-fi
+restore_portable() {
+  local problems=0
 
-"$REAL_CC_SWITCH" "$@"
-status=$?
-if ((status != 0)); then
-  exit "$status"
-fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    printf 'ERROR: python3 unavailable; portable Claude settings were not restored.\n' >&2
+    return 1
+  fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  printf 'ERROR: Provider switched, but python3 is unavailable; portable Claude settings were not restored.\n' >&2
-  exit 1
-fi
+  if ! python3 "$REPO_DIR/scripts/merge-settings.py" merge \
+    --portable "$REPO_DIR/settings.portable.json" \
+    --target "$CLAUDE_DIR/settings.json" \
+    --backup-dir "$WRAPPER_BACKUP_DIR"; then
+    printf 'ERROR: portable Claude settings could not be restored.\n' >&2
+    problems=1
+  fi
 
-WRAPPER_BACKUP_DIR="$CLAUDE_DIR/backups/cc-config-wrapper"
-if ! python3 "$REPO_DIR/scripts/merge-settings.py" merge \
-  --portable "$REPO_DIR/settings.portable.json" \
-  --target "$CLAUDE_DIR/settings.json" \
-  --backup-dir "$WRAPPER_BACKUP_DIR"; then
-  printf 'ERROR: Provider switched, but portable Claude settings could not be restored.\n' >&2
-  exit 1
-fi
-if ! rotate_wrapper_backups "$WRAPPER_BACKUP_DIR" 20; then
-  printf 'ERROR: Portable settings were restored, but wrapper backup rotation failed.\n' >&2
-  exit 1
-fi
+  if command -v serena-hooks >/dev/null 2>&1; then
+    if ! python3 "$REPO_DIR/scripts/merge-settings.py" merge-hooks \
+      --hooks "$REPO_DIR/hooks.portable.json" \
+      --target "$CLAUDE_DIR/settings.json" \
+      --backup-dir "$WRAPPER_BACKUP_DIR"; then
+      printf 'WARNING: portable serena hooks could not be restored.\n' >&2
+    fi
+  else
+    printf 'WARNING: serena-hooks is missing; portable serena hooks were not restored.\n' >&2
+  fi
 
-printf 'Portable Claude settings restored after CC-Switch Provider change.\n'
+  rotate_wrapper_backups "$WRAPPER_BACKUP_DIR" 20 || {
+    printf 'WARNING: wrapper backup rotation failed; backups retained.\n' >&2
+  }
+
+  return "$problems"
+}
+
+mode=$(classify_mode "$@")
+
+case "$mode" in
+  passthrough)
+    exec "$REAL_CC_SWITCH" "$@"
+    ;;
+  explicit_switch|interactive)
+    "$REAL_CC_SWITCH" "$@"
+    status=$?
+    if ((status != 0)); then
+      exit "$status"
+    fi
+    restore_portable
+    code=$?
+    if ((code == 0)); then
+      printf 'Portable Claude settings and hooks restored after CC-Switch Provider change.\n'
+    fi
+    exit "$code"
+    ;;
+esac
