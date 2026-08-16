@@ -1,0 +1,26 @@
+{
+  "marketplaces": [
+    {
+      "name": "claude-hud",
+      "source": "jarrodwatts/claude-hud"
+    },
+    {
+      "name": "karpathy-skills",
+      "source": "forrestchang/andrej-karpathy-skills"
+    },
+    {
+      "name": "sciverse",
+      "source": "https://github.com/opendatalab/Sciverse-Agent-Tools.git"
+    },
+    {
+      "name": "obsidian-skills",
+      "source": "kepano/obsidian-skills"
+    }
+  ],
+  "plugins": [
+    "claude-hud@claude-hud",
+    "andrej-karpathy-skills@karpathy-skills",
+    "sciverse@sciverse",
+    "obsidian@obsidian-skills"
+  ]
+}

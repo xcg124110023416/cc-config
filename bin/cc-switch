@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -u
+
+SELF=$(readlink -f -- "${BASH_SOURCE[0]}")
+REPO_DIR=$(cd -- "$(dirname -- "$SELF")/.." && pwd -P)
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+rotate_wrapper_backups() {
+  local backup_dir=$1
+  local keep=${2:-20}
+  local -a backups=()
+  local index
+
+  [[ -d $backup_dir ]] || return 0
+  mapfile -d '' -t backups < <(
+    find "$backup_dir" -maxdepth 1 -type f -name 'settings.json.*.bak' \
+      -printf '%T@\t%p\0' | sort -z -nr
+  )
+  for ((index = keep; index < ${#backups[@]}; index++)); do
+    rm -f -- "${backups[index]#*$'\t'}"
+  done
+}
+
+find_real_cc_switch() {
+  local old_ifs=$IFS
+  local directory candidate resolved
+  IFS=:
+  for directory in ${PATH:-}; do
+    [[ -n $directory ]] || directory=.
+    candidate="$directory/cc-switch"
+    [[ -x $candidate ]] || continue
+    resolved=$(readlink -f -- "$candidate" 2>/dev/null || true)
+    if [[ -n $resolved && $resolved != "$SELF" ]]; then
+      IFS=$old_ifs
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  done
+  IFS=$old_ifs
+  return 1
+}
+
+REAL_CC_SWITCH=$(find_real_cc_switch) || {
+  printf 'ERROR: real cc-switch not found after excluding wrapper: %s\n' "$SELF" >&2
+  exit 127
+}
+
+should_merge_claude_settings() {
+  local app=claude
+  local -a positional=()
+  local index=1 argument
+
+  while ((index <= $#)); do
+    argument=${!index}
+    case "$argument" in
+      -a|--app)
+        ((index++))
+        ((index <= $#)) || return 1
+        app=${!index}
+        ;;
+      --app=*) app=${argument#--app=} ;;
+      -v|--verbose) ;;
+      --) ;;
+      *) positional+=("$argument") ;;
+    esac
+    ((index++))
+  done
+
+  [[ $app == claude ]] || return 1
+  [[ ${positional[0]:-} == use ]] && return 0
+  [[ ${positional[0]:-} == provider && ${positional[1]:-} == switch ]]
+}
+
+if ! should_merge_claude_settings "$@"; then
+  exec "$REAL_CC_SWITCH" "$@"
+fi
+
+"$REAL_CC_SWITCH" "$@"
+status=$?
+if ((status != 0)); then
+  exit "$status"
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  printf 'ERROR: Provider switched, but python3 is unavailable; portable Claude settings were not restored.\n' >&2
+  exit 1
+fi
+
+WRAPPER_BACKUP_DIR="$CLAUDE_DIR/backups/cc-config-wrapper"
+if ! python3 "$REPO_DIR/scripts/merge-settings.py" merge \
+  --portable "$REPO_DIR/settings.portable.json" \
+  --target "$CLAUDE_DIR/settings.json" \
+  --backup-dir "$WRAPPER_BACKUP_DIR"; then
+  printf 'ERROR: Provider switched, but portable Claude settings could not be restored.\n' >&2
+  exit 1
+fi
+if ! rotate_wrapper_backups "$WRAPPER_BACKUP_DIR" 20; then
+  printf 'ERROR: Portable settings were restored, but wrapper backup rotation failed.\n' >&2
+  exit 1
+fi
+
+printf 'Portable Claude settings restored after CC-Switch Provider change.\n'
