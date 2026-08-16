@@ -14,6 +14,12 @@ cd ~/cc-config
 claude
 ```
 
+也可以让 Agent 按恢复协议自动补齐（`AGENT_SETUP.md`）：
+
+> 在 Claude Code 中发起：请按 AGENT_SETUP.md 帮我完成这台机器的 Claude Code 环境迁移。
+
+Agent 会执行 install → doctor → 查官方文档补缺失依赖 → 复验 → 输出剩余人工认证清单。
+
 安装器使用：
 
 ```bash
@@ -120,15 +126,18 @@ SciVerse 凭证不迁移。新机器需要自备：
 
 ## peon-ping
 
-peon-ping 是机器相关的，普通便携安装不会安装它。
+peon-ping 是迁移时希望恢复的一项环境能力，但具体部署方式取决于目标系统。
 
-其 WSL 配置保存在：
+仓库目前保存了一套已验证的 WSL 模板：
 
 ```text
 profiles/wsl/peon-ping/
 ```
 
-如果兼容的 WSL 机器需要，请按照该 profile 的 README 操作。
+在 WSL 环境中可以复用该模板。
+
+如果目标环境不适用现有 WSL 模板，Agent 不应强行套用，
+应查询当前官方支持方式并根据当前受支持环境动态配置。
 
 ## doctor
 
