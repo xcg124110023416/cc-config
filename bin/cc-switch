@@ -147,13 +147,34 @@ case "$mode" in
     exec "$REAL_CC_SWITCH" "$@"
     ;;
   explicit_switch|interactive)
+    # Snapshot pre-switch settings so local (non-portable) hooks — e.g. peon-ping —
+    # survive provider switches that rewrite settings.json. Portable fields and serena
+    # hooks are restored by restore_portable; anything else that existed before the
+    # switch is re-merged from this snapshot.
+    snapshot=$(mktemp "${TMPDIR:-/tmp}/cc-config-preshift.XXXXXX.json") || snapshot=""
+    have_snapshot=0
+    if [[ -n $snapshot && -f $CLAUDE_DIR/settings.json ]]; then
+      cp -- "$CLAUDE_DIR/settings.json" "$snapshot" && have_snapshot=1
+    fi
+
     "$REAL_CC_SWITCH" "$@"
     status=$?
     if ((status != 0)); then
+      [[ -n $snapshot ]] && rm -f -- "$snapshot"
       exit "$status"
     fi
     restore_portable
     code=$?
+    if ((have_snapshot == 1)) && command -v python3 >/dev/null 2>&1; then
+      if ! python3 "$REPO_DIR/scripts/merge-settings.py" merge-hooks \
+        --hooks "$snapshot" \
+        --target "$CLAUDE_DIR/settings.json" \
+        --backup-dir "$WRAPPER_BACKUP_DIR"; then
+        printf 'WARNING: local hooks could not be restored after provider change.\n' >&2
+        code=1
+      fi
+    fi
+    [[ -n $snapshot ]] && rm -f -- "$snapshot"
     if ((code == 0)); then
       printf 'Portable Claude settings and hooks restored after CC-Switch Provider change.\n'
     fi
