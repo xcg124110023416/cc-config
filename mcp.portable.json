@@ -24,6 +24,13 @@
       "requires": ["sciverse-mcp-server"],
       "requiresAuth": "token",
       "note": "凭证文件 $HOME/.config/sciverse/token 需目标机重新获取，不做迁移"
+    },
+    {
+      "name": "mcp-ssh",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["@aiondadotcom/mcp-ssh"],
+      "note": "SSH 远程命令/文件操作 MCP；目标主机由本机 SSH 配置与 known_hosts 决定，不迁移"
     }
   ]
 }

@@ -64,6 +64,7 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 - `codegraph`
 - `serena`
 - `sciverse`
+- `mcp-ssh`
 
 当前便携 hooks：
 
