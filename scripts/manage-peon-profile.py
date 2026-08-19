@@ -269,7 +269,8 @@ export PEON_PLATFORM={platform_id!r}
 {player_export}export CLAUDE_PEON_DIR=\"$(cd -- \"$(dirname -- \"$script\")\" && pwd -P)\"
 exec \"$CLAUDE_PEON_DIR/peon.sh\" \"$@\"
 """
-    wrapper.write_text(content, encoding="utf-8", newline="\n")
+    with wrapper.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(content)
     os.chmod(wrapper, 0o755)
     return wrapper
 

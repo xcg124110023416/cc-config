@@ -83,9 +83,19 @@ CC-Switch 管理：
 - Base URL
 - 代理
 - 模型选择与路由
-- `ENABLE_TOOL_SEARCH`
+- Claude Quick Config Menu 的四项用户偏好：隐藏 AI attribution、Teammates、
+  Tool Search、禁用自动升级
+
+这四项分别对应 `attribution`、`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`、
+`ENABLE_TOOL_SEARCH` 与 `DISABLE_AUTOUPDATER`，不进入 `settings.portable.json`；
+由用户在每个 Provider 的 Quick Config Menu 中自行选择，迁移不要求固定为 `4/4`。
 
 本仓库刻意不保存 Provider 凭证或 API Key。
+
+每个用于 Claude Code 的 CC-Switch Provider 都必须启用
+`Attach Common Config`。`install.sh` 会把 `settings.portable.json` 同步为
+Claude Common Config Snippet，但 Provider 是否附加该 Snippet 仍由
+`Attach Common Config` 控制；新建或迁移 Provider 后必须确认其为 `[√]`。
 
 ## CC-Switch wrapper
 
@@ -101,6 +111,10 @@ cc-switch provider switch <provider>
 ```
 
 也会在退出交互式 CC-Switch TUI 后恢复。
+
+wrapper 的恢复是 Provider 切换后的兜底对账，不替代
+`Attach Common Config`。标准迁移状态必须同时满足：Provider 已附加 Common
+Config，且 PATH 中优先使用本仓库的 wrapper。
 
 普通 CC-Switch 命令原样透传。
 

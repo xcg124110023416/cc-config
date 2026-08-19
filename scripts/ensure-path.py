@@ -13,8 +13,8 @@ from pathlib import Path
 BEGIN = "# >>> cc-config wrapper >>>"
 END = "# <<< cc-config wrapper <<<"
 BLOCK = f'''{BEGIN}
-case ":$PATH:" in
-  *":$HOME/cc-config/bin:"*) ;;
+case "$PATH" in
+  "$HOME/cc-config/bin"|"$HOME/cc-config/bin:"*) ;;
   *) export PATH="$HOME/cc-config/bin:$PATH" ;;
 esac
 {END}'''
