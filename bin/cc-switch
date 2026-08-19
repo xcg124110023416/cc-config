@@ -147,10 +147,10 @@ case "$mode" in
     exec "$REAL_CC_SWITCH" "$@"
     ;;
   explicit_switch|interactive)
-    # Snapshot pre-switch settings so local (non-portable) hooks — e.g. peon-ping —
-    # survive provider switches that rewrite settings.json. Portable fields and serena
-    # hooks are restored by restore_portable; anything else that existed before the
-    # switch is re-merged from this snapshot.
+    # Snapshot pre-switch settings so unmanaged local hooks survive provider
+    # switches that rewrite settings.json. Portable fields and Serena hooks are
+    # restored by restore_portable; repository-managed peon hooks are reconciled
+    # from the detected host profile after this snapshot is re-merged.
     snapshot=$(mktemp "${TMPDIR:-/tmp}/cc-config-preshift.XXXXXX.json") || snapshot=""
     have_snapshot=0
     if [[ -n $snapshot && -f $CLAUDE_DIR/settings.json ]]; then
@@ -172,6 +172,17 @@ case "$mode" in
         --backup-dir "$WRAPPER_BACKUP_DIR"; then
         printf 'WARNING: local hooks could not be restored after provider change.\n' >&2
         code=1
+      fi
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+      profile=$(python3 "$REPO_DIR/scripts/manage-peon-profile.py" detect 2>/dev/null || printf none)
+      if [[ $profile != none && -f $CLAUDE_DIR/hooks/peon-ping/.cc-config-profile.json ]]; then
+        if ! python3 "$REPO_DIR/scripts/manage-peon-profile.py" reconcile \
+          --profile "$profile" \
+          --claude-dir "$CLAUDE_DIR"; then
+          printf 'WARNING: host-native peon hooks could not be reconciled after provider change.\n' >&2
+          code=1
+        fi
       fi
     fi
     [[ -n $snapshot ]] && rm -f -- "$snapshot"

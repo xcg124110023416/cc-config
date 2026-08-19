@@ -115,6 +115,10 @@ for category in skills agents commands rules hooks output-styles; do
   shopt -u nullglob dotglob
   for source in "${items[@]}"; do
     name=$(basename -- "$source")
+    if [[ $category == skills && $name == peon-ping-* ]]; then
+      printf 'SKIP: profile-owned skill is refreshed by profiles/peon-ping: %s\n' "$source"
+      continue
+    fi
     stage_and_offer "$source" "$REPO_DIR/$category/$name" "$category/$name"
   done
 done

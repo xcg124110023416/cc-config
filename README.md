@@ -1,6 +1,6 @@
 # Claude Code portable config
 
-用于在新 WSL / Ubuntu / Linux 机器上恢复核心工作环境的 Claude Code 便携配置。
+用于在 WSL、原生 Linux 和 macOS 主机上恢复核心工作环境的 Claude Code 便携配置；peon-ping profile 另提供原生 Windows 迁移入口。
 
 CC-Switch 继续负责 Provider、API、Base URL、代理、凭证和模型路由。
 
@@ -56,6 +56,7 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 - 托管插件
 - 便携 MCP Servers
 - 便携 Serena hooks
+- 按宿主系统选择的 peon-ping profile
 - CC-Switch Common Config
 - CC-Switch 兼容 wrapper
 
@@ -144,18 +145,49 @@ SciVerse 凭证不迁移。新机器需要自备：
 
 ## peon-ping
 
-peon-ping 是迁移时希望恢复的一项环境能力，但具体部署方式取决于目标系统。
+peon-ping 属于“仓库管理、宿主选择”的 profile，不放进全平台共享的
+`hooks.portable.json`，也不依赖已有 `settings.json` 快照才能恢复。
+`install.sh` 会检测主机、显示将选择的 profile，经确认后安装固定版本且
+SHA-256 校验通过的上游运行时，并在最后重对账 hooks。
 
-仓库目前保存了一套已验证的 WSL 模板：
+支持矩阵：
 
-```text
-profiles/wsl/peon-ping/
+| 主机 | Profile | 执行与音频后端 |
+|---|---|---|
+| WSL2 + WSLg/Pulse | `wsl-native` | WSL 内的 `peon.sh`，强制 Linux `pw-play` / `paplay` / `ffplay` 等链路；不调用 Windows 可执行文件 |
+| 原生 Linux / Ubuntu | `linux` | Linux `peon.sh` 与本机音频播放器 |
+| macOS | `macos` | Unix `peon.sh` 与 `afplay` |
+| 原生 Windows | `windows` | Windows PowerShell `peon.ps1` |
+| 其他或显式关闭 | `none` | `NOT_APPLICABLE` |
+
+自动检测可用 `CC_CONFIG_PEON_PROFILE` 覆盖：
+
+```bash
+CC_CONFIG_PEON_PROFILE=linux ./install.sh
+CC_CONFIG_PEON_PROFILE=none ./install.sh
 ```
 
-在 WSL 环境中可以复用该模板。
+权威 profile 声明位于 `profiles/peon-ping/profile.json`，管理器是
+`scripts/manage-peon-profile.py`。上游 runtime、sound packs、用户
+`config.json`、`.state.json` 与日志不进入 Git；迁移时保留已有配置和状态。
 
-如果目标环境不适用现有 WSL 模板，Agent 不应强行套用，
-应查询当前官方支持方式并根据当前受支持环境动态配置。
+profile hooks 由管理器按目标机生成，会移除旧的 peon-only handler，保留
+Serena 和其他无关 hooks。`install.sh` 与 CC-Switch wrapper 都会在可能重写
+`settings.json` 的操作后重新对账 profile，因此 peon 不再依赖一次性的本机
+hook 快照。`doctor.sh` 会检查 profile、runtime、音频后端、handler 数量和
+WSL 中残留的 PowerShell peon 命令。
+
+手动查看或修复：
+
+```bash
+python3 scripts/manage-peon-profile.py detect
+python3 scripts/manage-peon-profile.py status
+python3 scripts/manage-peon-profile.py install
+python3 scripts/manage-peon-profile.py reconcile
+```
+
+安装需要联网下载锁定的上游源码和默认 packs；普通 doctor/status 不联网，
+也不会播放声音。新安装或 profile 更新后重启 Claude Code，使 hooks 全量生效。
 
 ## doctor
 

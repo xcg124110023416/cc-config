@@ -21,6 +21,7 @@ config.json
 **/*.pfx
 
 # Claude runtime state.
+.claude/
 projects/
 sessions/
 history.jsonl

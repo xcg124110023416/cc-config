@@ -86,6 +86,18 @@ for skill in hv-analysis khazix-writer mineru neat-freak paper-translator; do
   fi
 done
 
+printf '\nHost-native peon-ping profile\n'
+printf -- '-----------------------------\n'
+if command -v python3 >/dev/null 2>&1; then
+  if ! python3 "$REPO_DIR/scripts/manage-peon-profile.py" status \
+    --claude-dir "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; then
+    status_ok=1
+  fi
+else
+  printf '%-20s MISSING python3\n' 'Peon profile'
+  status_ok=1
+fi
+
 printf '\nPlugins\n'
 printf -- '-------\n'
 if command -v claude >/dev/null 2>&1; then

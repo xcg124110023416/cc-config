@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-EXCLUDED_DIRS = {".git", ".serena", ".codegraph", "__pycache__", ".local-backups"}
+EXCLUDED_DIRS = {".git", ".claude", ".serena", ".codegraph", "__pycache__", ".local-backups"}
 FORBIDDEN_NAMES = {
     ".claude.json",
     "settings.json",
@@ -165,6 +165,34 @@ def validate_hooks_manifest(path: Path) -> list[str]:
     return findings
 
 
+def validate_peon_profile(path: Path) -> list[str]:
+    findings: list[str] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid JSON in {path}: {exc}"]
+    upstream = data.get("upstream")
+    if not isinstance(upstream, dict):
+        return [f"{path}: upstream must be an object"]
+    repository = upstream.get("repository")
+    revision = upstream.get("ref")
+    checksum = upstream.get("archive_sha256")
+    if not isinstance(repository, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        findings.append(f"{path}: invalid upstream repository")
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        findings.append(f"{path}: upstream ref must be a full Git commit SHA")
+    if not isinstance(checksum, str) or not re.fullmatch(r"[0-9a-f]{64}", checksum):
+        findings.append(f"{path}: archive_sha256 must be a SHA-256 digest")
+    profiles = data.get("profiles")
+    expected = {"wsl-native", "linux", "macos", "windows"}
+    if not isinstance(profiles, dict) or set(profiles) != expected:
+        findings.append(f"{path}: profiles must be exactly {', '.join(sorted(expected))}")
+    packs = data.get("default_packs")
+    if not isinstance(packs, list) or not packs or not all(isinstance(pack, str) and re.fullmatch(r"[a-z0-9_-]+", pack) for pack in packs):
+        findings.append(f"{path}: default_packs must be a non-empty list of safe pack names")
+    return findings
+
+
 def audit(root: Path, settings_validator: Path | None) -> list[str]:
     findings: list[str] = []
     root = root.resolve()
@@ -211,6 +239,10 @@ def audit(root: Path, settings_validator: Path | None) -> list[str]:
         manifest_path = root / manifest_name
         if manifest_path.exists():
             findings.extend(validator(manifest_path))
+
+    peon_profile = root / "profiles" / "peon-ping" / "profile.json"
+    if peon_profile.exists():
+        findings.extend(validate_peon_profile(peon_profile))
 
     portable = root / "settings.portable.json"
     if settings_validator and portable.exists():

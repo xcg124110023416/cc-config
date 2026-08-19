@@ -81,9 +81,12 @@
   - 只把真正应该跨机器存在的 hook 写入 `hooks.portable.json`；
   - 本机已移除且确认不再需要的 portable hook → 从 manifest 移除；
   - 临时 / 机器专属 hook 不混入。
-- **portable / local 判断启发式**：命令含机器绝对路径（Windows 路径、`/home/<user>` 等）、环境专属
-  二进制或凭证 → 本机 local，留在 settings.json，由 cc-switch wrapper 的 pre-switch snapshot 保护；
-  纯通用命令（如 `serena-hooks`）→ 可写入 `hooks.portable.json`。
+- **portable / profile / local 分类**：
+  - 纯通用命令（如 `serena-hooks`）→ `hooks.portable.json`；
+  - 需要按宿主选择、但应跨同类机器恢复的能力（如 peon-ping）→ 仓库 profile，由 profile 管理器生成 hooks；
+  - 临时、含凭证或真正只属于当前机器的命令 → live settings，由 wrapper 快照保护。
+- profile 不得固化用户名或机器绝对路径；不要把生成后的 profile hooks 反向复制进
+  `hooks.portable.json`，应更新 profile manifest/管理器并测试各系统选择逻辑。
 - 不复制完整 `settings.json`。
 
 ### Settings
@@ -104,8 +107,11 @@
 ### 环境相关组件
 
 - 新增内容属于宿主环境能力，而非普通 Plugin / MCP / Skill 的 → 按 `AGENT_SETUP.md` 的
-  "环境相关组件"抽象处理。
-- 可增加对应 profile / adapter，但不固化机器用户名、绝对路径或凭证。
+  “环境相关组件”抽象处理。
+- peon-ping 的权威声明位于 `profiles/peon-ping/profile.json`；同步时只更新固定上游 revision、
+  archive 哈希、profile 选择规则和管理逻辑，不导入 live runtime、packs、配置、状态或日志。
+- profile/adapter 不固化机器用户名、绝对路径或凭证；更新后至少覆盖 detect、隔离安装、
+  legacy-hook 迁移、幂等 reconcile 和 doctor/status 验证。
 - 删除 / 停用同样按意图判断：profile 不再需要时移除对应条目，不残留占位。
 
 ## 三、安全边界
@@ -155,7 +161,7 @@
 
 不替换、不重构 `update.sh`。职责保持：
 
-- `update.sh` → 帮助发现 / 导入已有白名单文件变化。
+- `update.sh` → 帮助发现 / 导入已有白名单文件变化；profile-owned peon skills/runtime 不从 live 目录反向导入。
 - `AGENT_SYNC.md` → 告诉 Agent 如何理解这些变化、处理 Plugin / MCP / settings / hooks 等 manifest，
   并完成验证和 Git 同步。
 - `AGENT_SETUP.md` → 新机器根据 Git 目标状态恢复环境。

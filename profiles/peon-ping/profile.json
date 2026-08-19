@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "upstream": {
+    "repository": "PeonPing/peon-ping",
+    "ref": "f42241cc3b07ae36baff98bc1a04c62737cf5897",
+    "archive_sha256": "acf4046613b3564ada624a0c3da3fdb69da779ae6d30425d07b0eeba3dcf770b"
+  },
+  "default_packs": [
+    "peon",
+    "peasant",
+    "sc_scv",
+    "sc_battlecruiser",
+    "glados"
+  ],
+  "profiles": {
+    "wsl-native": {
+      "runtime": "unix",
+      "platform": "linux",
+      "description": "WSL with Linux audio through WSLg/PipeWire/PulseAudio"
+    },
+    "linux": {
+      "runtime": "unix",
+      "platform": "linux",
+      "description": "Native Linux audio"
+    },
+    "macos": {
+      "runtime": "unix",
+      "platform": "mac",
+      "description": "Native macOS audio"
+    },
+    "windows": {
+      "runtime": "powershell",
+      "platform": "windows",
+      "description": "Native Windows PowerShell audio"
+    }
+  }
+}

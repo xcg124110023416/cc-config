@@ -69,28 +69,28 @@ cd ~/cc-config
 
 ## 环境相关组件
 
-某些能力依赖宿主系统，不能像普通 Plugin / MCP 一样直接复用同一套配置。
+peon-ping 由仓库中的 host profile 管理。不要从旧机器复制绝对路径或把
+PowerShell 跨系统桥接命令写回配置；`install.sh` 应按目标机选择：
 
-当前已知组件：
-
-- peon-ping
+- WSL2 + WSLg/Pulse → `wsl-native`，在 WSL 内通过 Linux 播放器执行；
+- 原生 Linux / Ubuntu → `linux`；
+- macOS → `macos`；
+- 原生 Windows → `windows`；
+- 不支持或用户禁用 → `none` / `NOT_APPLICABLE`。
 
 Agent 恢复时：
 
-- 主动尝试恢复该能力；
-- 优先复用与当前系统匹配的已有 profile；
-- profile 不匹配时，查询迁移当天最新官方支持方式动态部署；
-- 不把机器用户名、绝对路径等本机信息写回 Git；
-- 当前系统不支持时标记 `SKIPPED` / `NOT_APPLICABLE`；
-- 涉及 sudo、跨系统安装或明显系统修改时再向用户确认。
+- 先运行 `python3 scripts/manage-peon-profile.py detect`，再由 `install.sh` 明示并部署；
+- 以 `profiles/peon-ping/profile.json` 的固定上游 revision 和哈希为权威；
+- 不运行未固定版本的 `curl | shell`；
+- 不把 runtime、packs、用户配置、状态或日志加入 Git；
+- WSL profile 不得调用 `powershell.exe`、`cmd.exe` 或 Windows 路径；
+- 缺少音频后端时由 doctor 报 `MISSING`，不要静默换成另一系统的后端；
+- 可用 `CC_CONFIG_PEON_PROFILE=none` 明确禁用，或指定 profile 做受控覆盖；
+- 安装需要网络并会修改用户级 hooks/skills，必须纳入 `install.sh` 的确认计划；
+- profile 更新后重启 Claude Code。
 
-当前已有：
-
-```text
-profiles/wsl/peon-ping/
-```
-
-具体 WSL 部署细节见该 profile 自己的 README。
+检测与对账由 `scripts/manage-peon-profile.py` 负责；不要手工拼装 peon hooks。
 
 ## 验证
 

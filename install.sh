@@ -7,10 +7,11 @@ SETTINGS="$CLAUDE_DIR/settings.json"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_DIR="$CLAUDE_DIR/backups/cc-config-$TIMESTAMP"
 
-# Machine-local hooks (e.g. peon-ping) are not in hooks.portable.json. The
-# CC-Switch Common Snippet --apply in sync_cc_switch_common() can rebuild
-# settings.json and wipe them, so snapshot the hooks subtree first and re-merge
-# it after the sync. Only the hooks subtree is captured — never the whole file.
+# Unmanaged machine-local hooks are not in hooks.portable.json. The CC-Switch
+# Common Snippet --apply in sync_cc_switch_common() can rebuild settings.json
+# and wipe them, so snapshot the hooks subtree first and re-merge it after the
+# sync. Repository-managed host profiles (including peon-ping) are reconciled
+# from their profile manifest at the end. Only the hooks subtree is captured.
 HOOKS_SNAPSHOT=""
 cleanup_hooks_snapshot() {
   [[ -n $HOOKS_SNAPSHOT ]] && rm -f -- "$HOOKS_SNAPSHOT"
@@ -27,6 +28,8 @@ fi
 
 python3 "$REPO_DIR/scripts/audit-portable.py" "$REPO_DIR" \
   --settings-validator "$REPO_DIR/scripts/merge-settings.py"
+
+PEON_PROFILE=$(python3 "$REPO_DIR/scripts/manage-peon-profile.py" detect)
 
 confirm() {
   local prompt=$1
@@ -59,6 +62,10 @@ printf '  - move conflicting existing items into %s before linking\n' "$BACKUP_D
 printf '  - check the plugin manifest and offer to install missing plugins\n'
 printf '  - register portable MCP servers through the official claude mcp CLI\n'
 printf '  - merge portable hooks into %s (serena; never deletes target hooks)\n' "$SETTINGS"
+if [[ $PEON_PROFILE != none ]]; then
+  printf '  - install/reconcile host-native peon-ping profile: %s\n' "$PEON_PROFILE"
+  printf '    (downloads the pinned, SHA-256-verified upstream runtime and default packs)\n'
+fi
 if ! confirm 'Apply this portable configuration?'; then
   printf 'Cancelled; no configuration files were changed.\n'
   exit 0
@@ -277,11 +284,11 @@ install_hooks() {
 
 install_mcp
 
-# Re-merge the pre-install machine-local hooks (peon-ping or any other local
-# command hook) that the Common Snippet --apply may have wiped. Merge — never
-# overwrite — so hooks the sync added are preserved and nothing is duplicated;
-# install_hooks() below then ensures the portable hooks.portable.json (Serena)
-# are present too. No hook contents or credentials are printed.
+# Re-merge pre-install unmanaged command hooks that Common Snippet --apply may
+# have wiped. Merge — never overwrite — so hooks the sync added are preserved;
+# install_hooks() then ensures portable Serena hooks, and install_peon_profile()
+# finally replaces any legacy peon command with the selected host profile.
+# No hook contents or credentials are printed.
 if [[ -n $HOOKS_SNAPSHOT && -f $HOOKS_SNAPSHOT ]]; then
   if python3 "$REPO_DIR/scripts/merge-settings.py" merge-hooks \
     --hooks "$HOOKS_SNAPSHOT" \
@@ -296,6 +303,19 @@ if [[ -n $HOOKS_SNAPSHOT && -f $HOOKS_SNAPSHOT ]]; then
 fi
 
 install_hooks
+
+install_peon_profile() {
+  if [[ $PEON_PROFILE == none ]]; then
+    printf '\nPeon profile: NOT_APPLICABLE on this host.\n'
+    return
+  fi
+  printf '\nInstalling host-native peon-ping profile: %s\n' "$PEON_PROFILE"
+  python3 "$REPO_DIR/scripts/manage-peon-profile.py" install \
+    --profile "$PEON_PROFILE" \
+    --claude-dir "$CLAUDE_DIR"
+}
+
+install_peon_profile
 
 printf '\nPortable Claude Code configuration installed.\n'
 printf 'Claude config directory: %s\n' "$CLAUDE_DIR"
