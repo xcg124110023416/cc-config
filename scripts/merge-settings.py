@@ -16,18 +16,11 @@ from pathlib import Path
 from typing import Any
 
 ALLOWED_TOP_LEVEL = {
-    "env",
-    "attribution",
     "enabledPlugins",
     "statusLine",
     "effortLevel",
     "skipDangerousModePermissionPrompt",
 }
-ALLOWED_ENV = {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
-    "DISABLE_AUTOUPDATER",
-}
-ALLOWED_ATTRIBUTION = {"commit", "pr"}
 FORBIDDEN_KEY_PARTS = (
     "token",
     "secret",
@@ -68,26 +61,6 @@ def validate_portable(value: dict[str, Any]) -> None:
             + ", ".join(sorted(unexpected))
         )
 
-    env = value.get("env", {})
-    if not isinstance(env, dict):
-        raise PortableSettingsError("env must be an object")
-    unexpected_env = set(env) - ALLOWED_ENV
-    if unexpected_env:
-        raise PortableSettingsError(
-            "portable env contains CC-Switch/provider keys or unsupported keys: "
-            + ", ".join(sorted(unexpected_env))
-        )
-
-    attribution = value.get("attribution", {})
-    if not isinstance(attribution, dict):
-        raise PortableSettingsError("attribution must be an object")
-    unexpected_attribution = set(attribution) - ALLOWED_ATTRIBUTION
-    if unexpected_attribution:
-        raise PortableSettingsError(
-            "portable attribution contains unsupported keys: "
-            + ", ".join(sorted(unexpected_attribution))
-        )
-
     plugins = value.get("enabledPlugins", {})
     if not isinstance(plugins, dict) or any(
         not isinstance(key, str) or not isinstance(enabled, bool)
@@ -116,7 +89,6 @@ def validate_portable(value: dict[str, Any]) -> None:
             for index, child in enumerate(node):
                 inspect_keys(child, path + (str(index),))
 
-    # env variable names include CLAUDE_CODE but none of the forbidden provider parts.
     inspect_keys({key: child for key, child in value.items() if key != "enabledPlugins"})
 
 
@@ -288,13 +260,8 @@ def command_extract(args: argparse.Namespace) -> int:
     validate_portable(baseline)
 
     extracted: dict[str, Any] = {}
-    raw_source_env = source.get("env")
-    source_env: dict[str, Any] = raw_source_env if isinstance(raw_source_env, dict) else {}
-    env = {key: source_env[key] for key in ALLOWED_ENV if key in source_env}
-    if env:
-        extracted["env"] = dict(sorted(env.items()))
 
-    for key in ("attribution", "effortLevel", "skipDangerousModePermissionPrompt"):
+    for key in ("effortLevel", "skipDangerousModePermissionPrompt"):
         if key in source:
             extracted[key] = copy.deepcopy(source[key])
         elif key in baseline:

@@ -103,6 +103,9 @@
   - 拿不准时向用户确认，不要静默跳过；
   - 若新增的是 top-level 键，同步检查 `command_extract` 是否也要纳入该键。
 - Provider / API / Base URL / token / model routing 等继续归 CC-Switch，不进入 portable manifest。
+- Claude Quick Config Menu 的四项用户偏好也归 CC-Switch：`attribution`、
+  `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`、`ENABLE_TOOL_SEARCH`、`DISABLE_AUTOUPDATER`
+  不得写入或从 live settings 提取回 `settings.portable.json`。
 
 ### 环境相关组件
 

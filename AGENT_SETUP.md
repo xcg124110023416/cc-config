@@ -64,6 +64,14 @@ cd ~/cc-config
 ## CC-Switch
 
 - doctor 或实际运行发现 Provider 未配置 → 提示用户完成 Provider / API / Base URL 等配置。
+- 每个用于 Claude Code 的 Provider 都必须启用 `Attach Common Config`（TUI 中显示 `[√]`；
+  非交互创建时使用 `--common-config`）。`install.sh` 只负责同步 Claude Common Config
+  Snippet，不能代替 Provider 与该 Snippet 的关联。
+- 仓库 wrapper 在 Provider 切换后恢复 portable settings / hooks 只是兜底对账，
+  不得把它当作关闭 `Attach Common Config` 的替代方案。
+- Claude Quick Config Menu 的隐藏 AI attribution、Teammates、Tool Search、禁用自动升级
+  均由 CC-Switch / 用户按 Provider 选择；不要从 `settings.portable.json` 恢复，也不要求
+  固定为 `4/4 enabled`。
 - 可以校验配置是否有效。
 - 不要从备份、数据库或其他机器自动提取 Provider 凭证。
 
@@ -102,7 +110,9 @@ Agent 恢复时：
 ```
 
 完成前确认 `claude mcp list` / `claude mcp get` 中的 portable MCP 已注册，
-并确认 portable hooks 已合入当前 settings。
+确认 portable hooks 已合入当前 settings，并逐个确认用于 Claude Code 的 CC-Switch
+Provider 已启用 `Attach Common Config`。同时在新 shell 中确认 `command -v cc-switch`
+解析到 `~/cc-config/bin/cc-switch`。
 
 最终目标不是 doctor 全绿，而是明确分类：
 

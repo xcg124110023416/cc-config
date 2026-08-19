@@ -83,6 +83,11 @@ class HookReconciliationTests(unittest.TestCase):
             if isinstance(handler, dict) and isinstance(handler.get("command"), str)
         ]
 
+    def test_unix_wrapper_uses_lf_line_endings(self) -> None:
+        wrapper = profile.write_unix_wrapper("wsl-native", self.claude_dir, "linux")
+        self.assertNotIn(b"\r\n", wrapper.read_bytes())
+        self.assertTrue(wrapper.read_bytes().endswith(b"\n"))
+
     def test_unix_reconcile_migrates_legacy_and_preserves_serena(self) -> None:
         profile.write_unix_wrapper("wsl-native", self.claude_dir, "linux")
         profile.reconcile_unix_hooks(self.claude_dir)
