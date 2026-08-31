@@ -3,7 +3,8 @@
     "andrej-karpathy-skills@karpathy-skills": true,
     "claude-hud@claude-hud": true,
     "sciverse@sciverse": true,
-    "obsidian@obsidian-skills": true
+    "obsidian@obsidian-skills": true,
+    "mattpocock-skills@claude-plugins-official": true
   },
   "statusLine": {
     "type": "command",

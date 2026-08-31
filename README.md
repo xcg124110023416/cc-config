@@ -134,6 +134,7 @@ Config，且 PATH 中优先使用本仓库的 wrapper。
 - `andrej-karpathy-skills@karpathy-skills`
 - `sciverse@sciverse`
 - `obsidian@obsidian-skills`
+- `mattpocock-skills@claude-plugins-official`
 
 插件缓存不进入 Git。
 
