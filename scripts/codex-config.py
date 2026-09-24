@@ -44,6 +44,12 @@ def local_binary(name: str) -> str | None:
     return binary
 
 
+def sciverse_credential_available() -> bool:
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    credential = config_home / "sciverse" / "token"
+    return credential.is_file() and credential.stat().st_size > 0
+
+
 def codex_binary() -> str | None:
     binary = local_binary("codex")
     if not binary and os.name == "nt":
@@ -275,15 +281,23 @@ def install(data: dict, codex_home: Path, skills_home: Path, backup_dir: Path, s
             name = server["name"]
             status = mcp_status(binary, server)
             missing = [dep for dep in server["requires"] if local_binary(dep) is None]
+            missing_credential = name == "sciverse" and not sciverse_credential_available()
             if status == "current":
-                if missing:
-                    print(f"[WARN] MCP {name} is configured but local dependency is missing: {', '.join(missing)}")
+                if missing or missing_credential:
+                    issues = []
+                    if missing:
+                        issues.append(f"local dependency is missing: {', '.join(missing)}")
+                    if missing_credential:
+                        issues.append("local credential is missing")
+                    print(f"[WARN] MCP {name} is configured but {'; '.join(issues)}")
                 else:
                     print(f"[OK] MCP {name}")
             elif status == "conflict":
                 print(f"[KEEP] existing MCP {name} differs; inspect with codex mcp get {name}")
             elif missing:
                 print(f"[SKIP] MCP {name}: local dependency is missing: {', '.join(missing)}")
+            elif missing_credential:
+                print(f"[SKIP] MCP {name}: local credential is missing")
             else:
                 response = run(binary, "mcp", "add", name, "--", server["command"], *server["args"])
                 print(f"[{'ADD' if response.returncode == 0 else 'WARN'}] MCP {name}")
@@ -325,9 +339,12 @@ def inspect(data: dict, codex_home: Path, skills_home: Path, binary: str | None,
         for server in wanted_servers(data["mcp_servers"]):
             status = mcp_status(binary, server)
             missing = [dep for dep in server["requires"] if local_binary(dep) is None]
+            missing_credential = server["name"] == "sciverse" and not sciverse_credential_available()
             detail = f"; local dependency missing: {', '.join(missing)}" if missing else ""
-            print(f"[{'OK' if status == 'current' and not missing else 'DIFF'}] MCP {server['name']}: {status}{detail}")
-            problems += (status != "current" or bool(missing)) and not sync
+            if missing_credential:
+                detail += "; local credential missing"
+            print(f"[{'OK' if status == 'current' and not missing and not missing_credential else 'DIFF'}] MCP {server['name']}: {status}{detail}")
+            problems += (status != "current" or bool(missing) or missing_credential) and not sync
     else:
         print("[DIFF] codex CLI missing; cannot inspect MCP")
         problems += not sync
