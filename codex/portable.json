@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "settings": {
+    "model_reasoning_effort": "xhigh"
+  },
+  "mcp_servers": ["codegraph", "serena", "sciverse", "mcp-ssh"]
+}

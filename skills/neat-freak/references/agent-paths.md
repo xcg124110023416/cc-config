@@ -21,7 +21,7 @@
 | 跨会话指令(全局) | `~/.codex/AGENTS.md` 或 `$CODEX_HOME/AGENTS.md` |
 | 项目级指令 | 项目根 `AGENTS.md`(可层级嵌套) |
 | 项目级 override | `AGENTS.override.md`(若存在,覆盖同目录 AGENTS.md) |
-| Skills 目录 | `~/.codex/skills/<name>/SKILL.md` 或项目内 `.codex/skills/<name>/` |
+| Skills 目录 | 用户级 `~/.agents/skills/<name>/SKILL.md`；项目级 `<repo>/.agents/skills/<name>/SKILL.md` |
 
 Codex 没有独立的"记忆文件 + 索引"机制,所有跨会话信息都直接写在 `AGENTS.md` 里。同步时把"项目事实"那部分内容统一放 AGENTS.md。
 

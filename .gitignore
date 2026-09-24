@@ -1,5 +1,8 @@
 # Deny local state and secrets even if accidentally copied here.
 .claude.json
+auth.json
+config.toml
+.cc-config-state.json
 settings.json
 config.json
 .env
@@ -22,6 +25,7 @@ config.json
 
 # Claude runtime state.
 .claude/
+.codex/
 projects/
 sessions/
 history.jsonl

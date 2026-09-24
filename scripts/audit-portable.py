@@ -14,6 +14,8 @@ from pathlib import Path
 EXCLUDED_DIRS = {".git", ".claude", ".serena", ".codegraph", "__pycache__", ".local-backups"}
 FORBIDDEN_NAMES = {
     ".claude.json",
+    "auth.json",
+    "config.toml",
     "settings.json",
     "config.json",
     "history.jsonl",
@@ -165,6 +167,25 @@ def validate_hooks_manifest(path: Path) -> list[str]:
     return findings
 
 
+def validate_codex_manifest(path: Path) -> list[str]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"invalid Codex portable manifest: {exc}"]
+    if not isinstance(data, dict) or data.get("version") != 1:
+        return ["Codex portable manifest must have version 1"]
+    settings = data.get("settings")
+    if not isinstance(settings, dict) or any(
+        key != "model_reasoning_effort" or value not in ("minimal", "low", "medium", "high", "xhigh")
+        for key, value in settings.items()
+    ):
+        return ["Codex portable settings contain unapproved fields or values"]
+    servers = data.get("mcp_servers")
+    if not isinstance(servers, list) or any(not isinstance(name, str) for name in servers):
+        return ["Codex MCP server names must be a list of strings"]
+    return []
+
+
 def validate_peon_profile(path: Path) -> list[str]:
     findings: list[str] = []
     try:
@@ -235,6 +256,8 @@ def audit(root: Path, settings_validator: Path | None) -> list[str]:
     for manifest_name, validator in (
         ("mcp.portable.json", validate_mcp_manifest),
         ("hooks.portable.json", validate_hooks_manifest),
+        ("codex/portable.json", validate_codex_manifest),
+        ("codex/hooks.json", validate_hooks_manifest),
     ):
         manifest_path = root / manifest_name
         if manifest_path.exists():

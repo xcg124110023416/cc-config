@@ -1,4 +1,29 @@
-# Claude Code portable config
+# Claude Code and Codex portable config
+
+## Codex（原生 Windows、WSL Linux、双系统 Linux）
+
+Codex 与 Claude Code 共用这个 Git 仓库的 Skills 和经过审核的 MCP 定义，
+但各自安装到本系统的配置目录；不会从 WSL 调用 Windows 版程序。
+Codex 安装、同步、诊断走独立的 Python 入口，**不要用下方 Claude 的
+`install.sh` 安装 Codex**：
+
+```powershell
+# Windows PowerShell，在仓库根目录（若只有 py 启动器，可用 py -3）
+python scripts/codex-config.py install
+python scripts/codex-config.py doctor
+```
+
+```bash
+# WSL、原生 Linux、macOS，在仓库根目录
+python3 scripts/codex-config.py install
+python3 scripts/codex-config.py doctor
+```
+
+主力机盘点变化：`python3 scripts/codex-config.py sync`（Windows 用 `python` 或 `py -3`）。
+恢复步骤、路径及不迁移内容见 [CODEX_SETUP.md](CODEX_SETUP.md)，
+持续同步规则见 [CODEX_SYNC.md](CODEX_SYNC.md)。
+
+## Claude Code
 
 用于在 WSL、原生 Linux 和 macOS 主机上恢复核心工作环境的 Claude Code 便携配置；peon-ping profile 另提供原生 Windows 迁移入口。
 
