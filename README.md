@@ -4,6 +4,9 @@
 
 Codex 与 Claude Code 共用这个 Git 仓库的 Skills 和经过审核的 MCP 定义，
 但各自安装到本系统的配置目录；不会从 WSL 调用 Windows 版程序。
+Codex 还会从锁定并校验的上游来源恢复适用的插件 Skills，独立安装
+peon-ping Codex adapter，并对账 CC-Switch Codex Common Config；
+不会复制 Claude 插件 ID、Provider 或凭证。
 Codex 安装、同步、诊断走独立的 Python 入口，**不要用下方 Claude 的
 `install.sh` 安装 Codex**：
 

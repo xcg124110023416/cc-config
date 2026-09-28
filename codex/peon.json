@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "upstream_profile": "profiles/peon-ping/profile.json",
+  "prompt_sound_on_submit": true,
+  "packs": [
+    {
+      "name": "peon",
+      "repository": "PeonPing/og-packs",
+      "ref": "v1.0.0",
+      "path": "peon",
+      "manifest_sha256": "565178cd55b46a66d443a9e8c001fa51926413d5e562677b43a5de2381c7fe8e"
+    },
+    {
+      "name": "peasant",
+      "repository": "PeonPing/og-packs",
+      "ref": "v1.0.0",
+      "path": "peasant",
+      "manifest_sha256": "7b32349f0c2734edc739c022d8fe3185b7be8f59e15f70743564c597c3a11848"
+    },
+    {
+      "name": "sc_scv",
+      "repository": "PeonPing/og-packs",
+      "ref": "v1.2.0",
+      "path": "sc_scv",
+      "manifest_sha256": "012352bc93f2f722fa2e39574e90ec488f8c827712c6da884966e07ea495a7ec"
+    },
+    {
+      "name": "sc_battlecruiser",
+      "repository": "PeonPing/og-packs",
+      "ref": "v1.0.0",
+      "path": "sc_battlecruiser",
+      "manifest_sha256": "70ea29abbb0b380def6cebda44af2d06e7191e6ee90565e4119cf0a4df472b50"
+    },
+    {
+      "name": "glados",
+      "repository": "PeonPing/og-packs",
+      "ref": "v1.0.0",
+      "path": "glados",
+      "manifest_sha256": "1e6066a66018f56092b917ae36123f84278b1fb29979642cee664760a1549d8b"
+    }
+  ]
+}

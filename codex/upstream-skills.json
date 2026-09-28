@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "kind": "github",
+      "name": "karpathy-skills",
+      "repository": "multica-ai/andrej-karpathy-skills",
+      "ref": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+      "archive_sha256": "10d372aba5bf8d55993c5dfebb2e0475ad5e7eecfc498d782c0e6ccf13d97ea5",
+      "skills": ["skills/karpathy-guidelines"]
+    },
+    {
+      "kind": "github",
+      "name": "obsidian-skills",
+      "repository": "kepano/obsidian-skills",
+      "ref": "3ccff5338ea700537839b21900aa5358a0402c98",
+      "archive_sha256": "216a2431e0c643192a403e7edef14fe266f07cd217e64c8be7b7299db062931c",
+      "skills": [
+        "skills/defuddle",
+        "skills/json-canvas",
+        "skills/knap",
+        "skills/obsidian-bases",
+        "skills/obsidian-cli",
+        "skills/obsidian-markdown"
+      ]
+    },
+    {
+      "kind": "github",
+      "name": "mattpocock-skills",
+      "repository": "mattpocock/skills",
+      "ref": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "archive_sha256": "7938c67820cd259ebca03efa78679455c1db5156f7404a50b6c53a45fe69345a",
+      "skills": [
+        "skills/engineering/ask-matt",
+        "skills/engineering/code-review",
+        "skills/engineering/codebase-design",
+        "skills/engineering/diagnosing-bugs",
+        "skills/engineering/domain-modeling",
+        "skills/engineering/grill-with-docs",
+        "skills/engineering/implement",
+        "skills/engineering/improve-codebase-architecture",
+        "skills/engineering/prototype",
+        "skills/engineering/research",
+        "skills/engineering/resolving-merge-conflicts",
+        "skills/engineering/setup-matt-pocock-skills",
+        "skills/engineering/tdd",
+        "skills/engineering/to-spec",
+        "skills/engineering/to-tickets",
+        "skills/engineering/triage",
+        "skills/engineering/wayfinder",
+        "skills/engineering/wizard",
+        "skills/misc/migrate-to-shoehorn",
+        "skills/misc/scaffold-exercises",
+        "skills/misc/setup-pre-commit",
+        "skills/productivity/grill-me",
+        "skills/productivity/grilling",
+        "skills/productivity/handoff",
+        "skills/productivity/teach",
+        "skills/productivity/to-questionnaire",
+        "skills/productivity/wait-what",
+        "skills/productivity/writing-for-agents"
+      ]
+    },
+    {
+      "kind": "files",
+      "name": "sciverse",
+      "base_url": "https://sciverse.space/.well-known/agent-skills/sciverse/",
+      "files": {
+        "SKILL.md": "1e150f67072f5819d3b500fd280a09583a6386cb7699ef297e0f3ad8e59749db",
+        "agents/openai.yaml": "08b7581756741a0157123104ce9f0eb3d1c4fe90a5ba4f08bffba4c4707cc775",
+        "references/rag-and-content.md": "f97549da4e7b02f1380b1e682dda819d05c53592ffbf03dd73e30af0eb7e2ca8",
+        "references/runtime.md": "814d4949eaa9bd3687c0fe18baea50432a2a437639223df89d847980e164a6f5",
+        "references/search-tools.md": "c3a4f5e2a539569c673e14db063090f59d2ed90e0ca19d6485c5684bf18e46ac",
+        "references/workflows.md": "2bb2bddfd508489af4a8847dc400b4dabad400cdf87337abe7a17a67fb125c7c",
+        "scripts/_common.mjs": "54379d1a557dfd8d73460a625e7b280001f539d39922c9917c5ae0827c2bddeb",
+        "scripts/get_resource.mjs": "4564c38c3c592bbda5134e86f241093c9d0fc9cf5f1f5d1cb1b0ca4247909b6d",
+        "scripts/list_catalog.mjs": "1a90ca70218fd25060a36eb8f970884335479b961a893b8fb9796341f1c14eac",
+        "scripts/list_paper_relations.mjs": "bc582273f2906d54652355622054cc4d2ffef733cb73ba52c40cd662ae628b88",
+        "scripts/read_content.mjs": "c59cbbd63ab14c47b508a20585836931df9c23f8970915e85400b78ea37df3a0",
+        "scripts/search_papers.mjs": "e378909cfc69d7cd325ccb7c472012d43ce802f3aca3e36cf61131d6bdeb036f",
+        "scripts/semantic_search.mjs": "76b609a27e4fe1252d30674ec64ea5b08a1430d5d83314102f5828f21b5ffd98"
+      }
+    }
+  ]
+}

@@ -37,9 +37,33 @@ python3 scripts/codex-config.py doctor
 
 `install` 会列出目标路径并询问确认。自动化终端可添加 `--yes`。
 安装器将便携指令合并到全局 `AGENTS.md` 的托管块，将仓库 Skills
-复制到用户 Skills 目录，并仅在缺少该键时写入便携 Codex 偏好。
-它通过 `codex mcp` 注册**当前机器上已经具备依赖**的服务器；
-有 `serena-hooks` 时合并 Codex 专用 hooks。重启 Codex 以重新发现 Skills。
+复制到用户 Skills 目录，并从固定提交、经 SHA-256 校验的上游来源恢复
+Karpathy、Obsidian、Matt Pocock 和 SciVerse Skills。Matt 的
+`setup-matt-pocock-skills` 在 Codex 副本中优先编辑 `AGENTS.md`；
+开发中及明确 Claude 专用的 Skills 不装。它仅在缺少该键时写入便携偏好，
+通过 `codex mcp` 注册**当前机器已具备依赖**的服务器。重启 Codex
+以重新发现 Skills。
+
+Serena 与 peon-ping 的 Codex hooks 合并到同一个 `hooks.json`，不会与
+`config.toml` 内联 hooks 混用。若已有内联 hook 定义，安装器保留它们并
+报告冲突，不擅自转换；`[hooks.state]` 信任记录不算内联定义。新命令 hook
+可能需要在 Codex 的 `/hooks` 中审核并信任。
+
+peon-ping 使用独立的 `$CODEX_HOME/cc-config-peon-ping/` 运行时，不依赖
+Claude Code 的安装。安装器按本机选择 `wsl-native`、`linux`、`macos` 或
+`windows` profile，校验固定上游源码、5 个默认包的 manifest 和每个声音
+文件的哈希。可用 `CC_CONFIG_PEON_PROFILE=none` 显式禁用；未具备本机音频
+后端时 `doctor` 会报告缺口，不改用另一系统的播放器。新安装默认启用
+`task.acknowledge`，发送消息会播放确认音；已有本机配置的该开关保持原值。
+上游 7 个 peon Skills 中，`peon-ping-config` 和 `peon-ping-toggle` 已适配
+Codex 独立运行时；其余 5 个涉及训练记录、会话命令或 Claude 驱动的声音包
+创作流程，暂不迁入。
+
+若安装了 CC-Switch，安装器还会备份并合并 Codex Common Config：
+保留本机已有字段，只加入缺少的便携偏好与**本机依赖和凭证已齐**的 MCP，
+并移除过时的顶层 `disable_response_storage`。Provider、API、模型路由
+仍由 CC-Switch / 用户自行管理；用于 Codex 的 Provider 需自行确认已附加
+Common Config，切换后运行 `doctor` 对账。
 
 已有的同名本机 Skill、MCP 和偏好若内容不同，会被保留并报告，不自动覆盖。
 已由本安装器管理且未在本机修改的 Skill 可以安全更新。修改配置前会备份
@@ -55,8 +79,11 @@ python3 scripts/codex-config.py doctor
 - SciVerse 使用本机的 `~/.config/sciverse/token`；在 Windows 上为
   `%USERPROFILE%\.config\sciverse\token`。如果设置 `XDG_CONFIG_HOME`，
   则从它的 `sciverse/token` 读取。仓库和 Codex 配置都不保存该凭证。
-- Claude Code 的 `plugins.json`、HUD、CC-Switch 和 peon-ping profile
-  不会被装进 Codex。Codex 插件须按其自己的 marketplace 和插件 ID 安装。
+- Claude Code 的插件 ID 不能直接复制到 Codex。HUD 和没有 Codex
+  实现的插件不迁移；可复用的上游 Skills、SciVerse MCP 与 peon-ping
+  Codex adapter 按上述方式独立恢复。
+- CC-Switch 的 Provider / API / Base URL / 模型路由不迁移，也不读取
+  旧机器的数据库或凭证。Codex Common Config 只管理上述便携片段。
 - 某些 Skill 的外部依赖和字体仍需在每个系统分别安装；`doctor` 检查
   便携配置是否就位，不保证每个第三方 Skill 的全部外部功能可用。
 

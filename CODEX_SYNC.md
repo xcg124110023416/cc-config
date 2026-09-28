@@ -14,6 +14,11 @@ python scripts/codex-config.py sync  # Windows 也可用 py -3；Linux / WSL 使
   保留在本机。项目自己的指令维护在项目的 `AGENTS.md`。
 - Skills：从用户 `~/.agents/skills/<name>` 比较仓库 `skills/<name>`；
   审核后更新仓库内容。排除插件缓存、机器专属路径、凭证和生成状态。
+  Codex 专用的 peon 管理 Skills 在 `codex/skills/`，不装入 Claude Code。
+  上游 Karpathy、Obsidian、Matt Pocock、SciVerse Skills 不反向复制到仓库；
+  其固定版本、选入路径和校验值维护在 `codex/upstream-skills.json`。
+  更新上游版本时重新审核 Codex 适用性及 Matt setup Skill 的
+  `AGENTS.md` 优先适配，再更新锁文件。
 - 偏好：仅修改 `codex/portable.json` 中 `settings` 的便携白名单项。
   模型、Provider、API、权限策略和本机绝对路径仍在本机 `config.toml`。
 - MCP：`mcp.portable.json` 是跨客户端定义来源；
@@ -21,10 +26,19 @@ python scripts/codex-config.py sync  # Windows 也可用 py -3；Linux / WSL 使
   `--context=claude-code` 会在 Codex 安装时改成 `--context=codex`；
   SciVerse 用本机 Python 与本机凭证启动。新增项须确认命令和依赖在
   目标操作系统中同样有效；不要导入本机认证数据。
-- Hooks：Codex 专用声明在 `codex/hooks.json`，仅安装本机具备
-  `serena-hooks` 的命令。它与 Claude 的 `hooks.portable.json` 分开。
-- Plugins：Claude `plugins.json` 的 ID 不对应 Codex 插件；先确认 Codex
-  marketplace 与插件兼容性，再单独设计便携清单，不直接复制已有插件。
+- Hooks：Serena 的 Codex 专用声明在 `codex/hooks.json`；peon-ping
+  的 Codex adapter hooks 由安装器生成并合入同一个本机 `hooks.json`。
+  不和 `config.toml` 内联 hooks 混用，也不复制 Claude 的
+  `hooks.portable.json`。
+- peon-ping：`codex/peon.json` 锁定 5 个默认声音包来源及 manifest
+  校验值，并设置新安装时的发送确认音默认值；运行时提交和哈希沿用
+  `profiles/peon-ping/profile.json`。已有本机配置的声音类别不被覆盖。
+  只记录可复现来源；不提交运行时、声音文件、用户配置和状态。
+- CC-Switch：Codex Common Config 只合并便携偏好及本机已就绪的 MCP。
+  Provider 是否附加 Common Config 仍须逐个确认；不要迁移 Provider
+  数据库或凭证。切换 Provider 后运行 Codex `doctor`。
+- Plugins：Claude `plugins.json` 的 ID 不对应 Codex 插件。当前可复用
+  部分按上游 Skill / MCP / adapter 恢复，HUD 等不支持部分暂不考虑。
 
 修改后依次运行 `python3 scripts/audit-portable.py . --settings-validator
 scripts/merge-settings.py`（Windows 用 `python` 或 `py -3`）、仓库测试、
