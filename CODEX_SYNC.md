@@ -19,7 +19,9 @@ python scripts/codex-config.py sync  # Windows 也可用 py -3；Linux / WSL 使
   其固定版本、选入路径和校验值维护在 `codex/upstream-skills.json`。
   更新上游版本时重新审核 Codex 适用性及 Matt setup Skill 的
   `AGENTS.md` 优先适配，再更新锁文件。
-- 偏好：仅修改 `codex/portable.json` 中 `settings` 的便携白名单项。
+- 偏好：仅修改 `codex/portable.json` 中 `settings` 的便携白名单项，
+  以及 `tui.status_line` 的原生状态栏项目与顺序；用 Codex `/statusline`
+  调整本机布局后，审核字段标识符再同步到清单。
   模型、Provider、API、权限策略和本机绝对路径仍在本机 `config.toml`。
 - MCP：`mcp.portable.json` 是跨客户端定义来源；
   `codex/portable.json` 只选择安装到 Codex 的服务器。Serena 的

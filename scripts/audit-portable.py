@@ -180,6 +180,15 @@ def validate_codex_manifest(path: Path) -> list[str]:
         for key, value in settings.items()
     ):
         return ["Codex portable settings contain unapproved fields or values"]
+    tui = data.get("tui")
+    status_line = tui.get("status_line") if isinstance(tui, dict) else None
+    if (
+        not isinstance(tui, dict) or set(tui) != {"status_line"}
+        or not isinstance(status_line, list) or not status_line
+        or any(not isinstance(item, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", item) for item in status_line)
+        or len(status_line) != len(set(status_line))
+    ):
+        return ["Codex portable status line must contain unique safe item identifiers"]
     servers = data.get("mcp_servers")
     if not isinstance(servers, list) or any(not isinstance(name, str) for name in servers):
         return ["Codex MCP server names must be a list of strings"]

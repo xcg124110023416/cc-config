@@ -49,6 +49,7 @@ class CodexMigrationTests(unittest.TestCase):
             self.assertEqual(initial, (codex_home / "config.toml").read_text(encoding="utf-8"))
             self.assertIn('model = "local-model"', initial)
             self.assertIn('model_reasoning_effort = "xhigh"', initial)
+            self.assertEqual((True, codex.manifest()["tui"]["status_line"]), codex.status_line_value(initial))
             self.assertIn("Local guidance", (codex_home / "AGENTS.md").read_text(encoding="utf-8"))
             self.assertEqual("local version", (local_skill / "SKILL.md").read_text(encoding="utf-8"))
             self.assertTrue((skills / "mineru" / "SKILL.md").exists())
@@ -65,10 +66,39 @@ class CodexMigrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             root.mkdir(exist_ok=True)
-            (root / "config.toml").write_text('model_reasoning_effort = "high"\n', encoding="utf-8")
+            (root / "config.toml").write_text(
+                'model_reasoning_effort = "high"\n[tui]\nstatus_line = ["local"]\n', encoding="utf-8"
+            )
             with mock.patch.object(codex.shutil, "which", return_value=None):
                 codex.install(codex.manifest(), root, root / "skills", root / "backup", {}, None, with_upstream=False, with_cc_switch=False, with_peon=False)
-            self.assertEqual('model_reasoning_effort = "high"\n', (root / "config.toml").read_text(encoding="utf-8"))
+            self.assertEqual(
+                'model_reasoning_effort = "high"\n[tui]\nstatus_line = ["local"]\n',
+                (root / "config.toml").read_text(encoding="utf-8"),
+            )
+
+    def test_status_line_merge_preserves_other_tui_fields_and_local_choices(self):
+        wanted = codex.manifest()["tui"]["status_line"]
+        original = '[tui]\ntheme = "local-theme"\n[mcp_servers.local]\ncommand = "local"\n'
+        merged = codex.merge_status_line(original, wanted)
+        self.assertEqual((True, wanted), codex.status_line_value(merged))
+        self.assertIn('theme = "local-theme"', merged)
+        self.assertIn('[mcp_servers.local]', merged)
+        self.assertEqual(merged, codex.merge_status_line(merged, wanted))
+        self.assertEqual((True, wanted), codex.status_line_value(codex.merge_status_line('[tui]', wanted)))
+        for existing in ('[tui]\nstatus_line = ["local"]\n', 'tui.status_line = ["local"]\n', 'tui = { theme = "local" }\n'):
+            self.assertEqual(existing, codex.merge_status_line(existing, wanted))
+
+    def test_install_preserves_crlf_when_adding_status_line(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = root / "config.toml"
+            config.write_bytes(b'model_reasoning_effort = "xhigh"\r\n[tui]\r\nshow_tooltips = true\r\n')
+            with mock.patch.object(codex.shutil, "which", return_value=None):
+                codex.install(codex.manifest(), root, root / "skills", root / "backup", {}, None,
+                              with_upstream=False, with_cc_switch=False, with_peon=False)
+            result = config.read_bytes()
+            self.assertIn(b'status_line = ["model-with-reasoning"', result)
+            self.assertEqual(result.count(b"\n"), result.count(b"\r\n"))
 
     def test_mcp_cli_shape_and_local_customizations(self):
         server = {"name": "codegraph", "command": "codegraph", "args": ["serve", "--mcp"]}
@@ -114,6 +144,7 @@ class CodexMigrationTests(unittest.TestCase):
         merged = codex.merge_codex_common(existing, codex.manifest(), servers)
         self.assertNotIn("disable_response_storage", merged)
         self.assertIn('theme = "local-theme"', merged)
+        self.assertEqual((True, codex.manifest()["tui"]["status_line"]), codex.status_line_value(merged))
         self.assertIn('command = "local-serena"', merged)
         self.assertEqual(1, merged.count("[mcp_servers.serena]"))
         self.assertIn("[mcp_servers.sciverse]", merged)

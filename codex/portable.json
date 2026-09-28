@@ -3,5 +3,8 @@
   "settings": {
     "model_reasoning_effort": "xhigh"
   },
+  "tui": {
+    "status_line": ["model-with-reasoning", "current-dir", "thread-name", "git-branch", "permissions", "context-used", "context-window-size", "fast-mode", "task-progress"]
+  },
   "mcp_servers": ["codegraph", "serena", "sciverse", "mcp-ssh"]
 }

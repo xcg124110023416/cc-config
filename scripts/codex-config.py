@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import concurrent.futures
 import hashlib
 import io
@@ -96,6 +97,15 @@ def manifest() -> dict:
         for key, value in settings.items()
     ):
         raise ValueError("unsupported portable Codex setting")
+    tui = data.get("tui")
+    status_line = tui.get("status_line") if isinstance(tui, dict) else None
+    if (
+        not isinstance(tui, dict) or set(tui) != {"status_line"}
+        or not isinstance(status_line, list) or not status_line
+        or any(not isinstance(item, str) or not SAFE_NAME.fullmatch(item) for item in status_line)
+        or len(status_line) != len(set(status_line))
+    ):
+        raise ValueError("unsupported portable Codex status line")
     servers = json.loads((ROOT / "mcp.portable.json").read_text(encoding="utf-8"))["servers"]
     known = {server["name"] for server in servers}
     if any(not isinstance(name, str) or name not in known for name in data["mcp_servers"]):
@@ -347,6 +357,46 @@ def setting_values(content: str) -> dict[str, str]:
     return values
 
 
+def status_line_value(content: str) -> tuple[bool, list[str] | None]:
+    """Read the TUI footer without parsing or copying unrelated local settings."""
+    in_tui = False
+    top = True
+    found: list[list[str] | None] = []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and not stripped.startswith("#"):
+            in_tui = bool(re.match(r"^\[tui\](?:\s*#.*)?$", stripped))
+            top = False
+        if top and re.match(r"^\s*tui\s*=", line):
+            return True, None  # Preserve an inline table rather than duplicate it.
+        match = re.match(r"^\s*status_line\s*=\s*(.*)$", line) if in_tui else None
+        if top and not match:
+            match = re.match(r"^\s*tui\.status_line\s*=\s*(.*)$", line)
+        if match:
+            try:
+                value = ast.literal_eval(match.group(1))
+            except (SyntaxError, ValueError):
+                value = None
+            found.append(value if isinstance(value, list) and all(isinstance(item, str) for item in value) else None)
+    return bool(found), found[0] if len(found) == 1 else None
+
+
+def merge_status_line(content: str, desired: list[str]) -> str:
+    if status_line_value(content)[0]:
+        return content
+    newline = "\r\n" if "\r\n" in content else "\n"
+    line = f"status_line = {json.dumps(desired)}{newline}"
+    lines = content.splitlines(keepends=True)
+    for index, existing in enumerate(lines):
+        if re.match(r"^\s*\[tui\]\s*(?:#.*)?$", existing):
+            if not existing.endswith("\n"):
+                lines[index] += newline
+            lines.insert(index + 1, line)
+            return "".join(lines)
+    separator = newline * 2 if content and not content.endswith("\n") else newline if content else ""
+    return content + separator + f"[tui]{newline}" + line
+
+
 def has_inline_hooks(content: str) -> bool:
     """Ignore Codex's hook trust records, which are not hook definitions."""
     return any(
@@ -428,6 +478,7 @@ def merge_codex_common(existing: str, data: dict, servers: list[dict]) -> str:
     for key, value in data["settings"].items():
         if key not in found:
             content = f'{key} = {json.dumps(value)}\n' + content
+    content = merge_status_line(content, data["tui"]["status_line"])
     existing_servers = {
         quoted or bare
         for quoted, bare in re.findall(
@@ -1022,7 +1073,11 @@ def install(data: dict, codex_home: Path, skills_home: Path, backup_dir: Path, s
     existing = guidance.read_text(encoding="utf-8") if guidance.exists() else ""
     updated = managed_guidance(existing, (ROOT / "codex" / "AGENTS.md").read_text(encoding="utf-8"))
     config = codex_home / "config.toml"
-    current = config.read_text(encoding="utf-8") if config.exists() else ""
+    if config.exists():
+        with config.open("r", encoding="utf-8", newline="") as source:
+            current = source.read()
+    else:
+        current = ""
     found = setting_values(current)
     hooks_target = codex_home / "hooks.json"
     inline_hooks = has_inline_hooks(current)
@@ -1043,6 +1098,14 @@ def install(data: dict, codex_home: Path, skills_home: Path, backup_dir: Path, s
             current = f'{key} = "{desired}"\n' + current
             save(config, current)
             print(f"[ADD] {key} in {config}")
+    present, status_line = status_line_value(current)
+    if present and status_line != data["tui"]["status_line"]:
+        print("[KEEP] existing tui.status_line differs from portable preference")
+    elif not present:
+        backup(config, backup_dir)
+        current = merge_status_line(current, data["tui"]["status_line"])
+        save(config, current)
+        print(f"[ADD] tui.status_line in {config}")
 
     skills_home.mkdir(parents=True, exist_ok=True)
     installed = state.setdefault("skills", {})
@@ -1139,6 +1202,10 @@ def inspect(data: dict, codex_home: Path, skills_home: Path, binary: str | None,
         value = values.get(key)
         print(f"[{'OK' if value == wanted else 'DIFF'}] {key}: {value or 'missing'} (portable: {wanted})")
         problems += value != wanted
+    _, status_line = status_line_value(config.read_text(encoding="utf-8") if config.exists() else "")
+    status_line_matches = status_line == data["tui"]["status_line"]
+    print(f"[{'OK' if status_line_matches else 'DIFF'}] tui.status_line")
+    problems += not status_line_matches
     for source in local_skill_sources():
         destination = skills_home / source.name
         current = destination.is_symlink() and destination.resolve() == source.resolve()

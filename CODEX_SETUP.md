@@ -43,6 +43,8 @@ Karpathy、Obsidian、Matt Pocock 和 SciVerse Skills。Matt 的
 开发中及明确 Claude 专用的 Skills 不装。它仅在缺少该键时写入便携偏好，
 通过 `codex mcp` 注册**当前机器已具备依赖**的服务器。重启 Codex
 以重新发现 Skills。
+Codex 内置 TUI 状态栏的项目与顺序保存在 `codex/portable.json` 的
+`tui.status_line`；安装器只在目标配置缺少该字段时补入，保留本机已有布局。
 
 Serena 与 peon-ping 的 Codex hooks 合并到同一个 `hooks.json`，不会与
 `config.toml` 内联 hooks 混用。若已有内联 hook 定义，安装器保留它们并
@@ -65,7 +67,7 @@ Codex 独立运行时；其余 5 个涉及训练记录、会话命令或 Claude 
 仍由 CC-Switch / 用户自行管理；用于 Codex 的 Provider 需自行确认已附加
 Common Config，切换后运行 `doctor` 对账。
 
-已有的同名本机 Skill、MCP 和偏好若内容不同，会被保留并报告，不自动覆盖。
+已有的同名本机 Skill、MCP 和偏好（包括状态栏）若内容不同，会被保留并报告，不自动覆盖。
 已由本安装器管理且未在本机修改的 Skill 可以安全更新。修改配置前会备份
 受影响的文件至 `$CODEX_HOME/backups/cc-config-codex-*`。再次运行安装器可以
 补齐新装的依赖。`doctor` 只检查，不安装或登录；缺少可选依赖时会报告差异。
