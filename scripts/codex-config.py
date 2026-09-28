@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import concurrent.futures
+import ctypes
 import hashlib
 import io
 import json
@@ -42,6 +43,8 @@ PEON_EVENTS = (
     ("SubagentStop", ""),
     ("Stop", ""),
 )
+PEON_HOOK_STATUS = "cc-config peon-ping"
+WINDOWS_HOOK_PATH = re.compile(r"[^\s\"'`$;&|<>^%(){}\[\],]+\Z")
 HEX_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 HEX_COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*\Z")
@@ -769,8 +772,31 @@ def stage_peon_runtime(upstream: dict, stage: Path) -> dict[str, str]:
     if installer.count(start) != 1 or installer.count(end) != 1:
         raise ValueError("pinned Windows peon-ping runtime layout changed")
     script = installer.split(start, 1)[1].split(end, 1)[0] + "\n"
+    windows_fixes = (
+        ("return Get-Content $Path -Raw\n", "return Get-Content $Path -Raw -Encoding UTF8\n"),
+        ("$manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json", "$manifest = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json"),
+        (
+            '        if ($recentPrompts.Count -ge $annoyedThreshold) {\n            $category = "user.spam"\n        }',
+            '        if ($recentPrompts.Count -ge $annoyedThreshold) {\n            $category = "user.spam"\n        } elseif ($event.source -eq "codex") {\n            $category = "task.acknowledge"\n        }',
+        ),
+        (
+            'Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-NonInteractive", "-File",',
+            'Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",',
+        ),
+    )
+    for before, after in windows_fixes:
+        if script.count(before) != 1:
+            raise ValueError("pinned Windows peon-ping runtime layout changed")
+        script = script.replace(before, after, 1)
     (stage / "peon.ps1").write_text(script, encoding="utf-8")
     files["peon.ps1"] = file_sha256(stage / "peon.ps1")
+    adapter_path = stage / "adapters" / "codex.ps1"
+    adapter = adapter_path.read_text(encoding="utf-8-sig")
+    before = "$payloadJson | powershell -NoProfile -NonInteractive -File $PeonScript 2>$null"
+    if adapter.count(before) != 1:
+        raise ValueError("pinned Windows peon-ping adapter layout changed")
+    adapter_path.write_text(adapter.replace(before, "$payloadJson | powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $PeonScript 2>$null"), encoding="utf-8")
+    files["adapters/codex.ps1"] = file_sha256(adapter_path)
     (stage / "install.ps1").unlink()
     for required in ("peon.sh", "peon.ps1", "adapters/codex.sh", "adapters/codex.ps1", "config.json"):
         if not (stage / required).is_file():
@@ -861,14 +887,29 @@ def install_peon_file(stage: Path, runtime: Path, relative: str, digest: str, pr
     return True
 
 
+def windows_hook_path(path: str) -> str:
+    """Use an unquoted path that both PowerShell and cmd can invoke."""
+    if WINDOWS_HOOK_PATH.fullmatch(path):
+        return path
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = ctypes.windll.kernel32.GetShortPathNameW(path, buffer, len(buffer))
+    short = buffer.value if 0 < length < len(buffer) else ""
+    if not WINDOWS_HOOK_PATH.fullmatch(short):
+        raise ValueError(f"Windows hook path has no shell-safe short form: {path}")
+    return short
+
+
 def peon_hook_groups(runtime: Path) -> dict:
     arguments = [sys.executable, str(runtime / "codex-peon-hook.py")]
-    command = subprocess.list2cmdline(arguments) if os.name == "nt" else shlex.join(arguments)
+    if os.name == "nt":
+        command = " ".join(windows_hook_path(argument) for argument in arguments)
+    else:
+        command = shlex.join(arguments)
     groups = {}
     for event, matcher in PEON_EVENTS:
-        handler = {"type": "command", "command": command, "timeout": 30}
+        handler = {"type": "command", "command": command, "timeout": 30, "statusMessage": PEON_HOOK_STATUS}
         if os.name == "nt":
-            handler["command_windows"] = command
+            handler["commandWindows"] = command
         group = {"hooks": [handler]}
         if matcher:
             group["matcher"] = matcher
@@ -893,7 +934,10 @@ def merge_peon_hooks(target: Path, additions: dict, runtime: Path) -> str:
                 continue
             handlers = [
                 handler for handler in group["hooks"]
-                if not (isinstance(handler, dict) and marker in str(handler.get("command", "")))
+                if not (
+                    isinstance(handler, dict)
+                    and (handler.get("statusMessage") == PEON_HOOK_STATUS or marker in str(handler.get("command", "")))
+                )
             ]
             if len(handlers) == len(group["hooks"]):
                 kept.append(group)
@@ -957,9 +1001,10 @@ def install_peon(codex_home: Path, backup_dir: Path, state: dict, *, inline_hook
     hooks_target = codex_home / "hooks.json"
     if profile_id == "none":
         print("[SKIP] Codex peon-ping: profile disabled or unsupported")
-        if hooks_target.exists() and not inline_hooks and str(runtime / "codex-peon-hook.py") in hooks_target.read_text(encoding="utf-8"):
+        if hooks_target.exists() and not inline_hooks:
+            existing_hooks = hooks_target.read_text(encoding="utf-8")
             desired = merge_peon_hooks(hooks_target, {}, runtime)
-            if desired != hooks_target.read_text(encoding="utf-8"):
+            if json.loads(desired) != json.loads(existing_hooks):
                 backup(hooks_target, backup_dir)
                 save(hooks_target, desired)
                 print("[ADD] disabled managed Codex peon-ping hooks")
@@ -1030,7 +1075,12 @@ def install_peon(codex_home: Path, backup_dir: Path, state: dict, *, inline_hook
     if inline_hooks:
         print("[KEEP] inline Codex hooks present; peon-ping hooks need manual review")
         return
-    desired = merge_peon_hooks(hooks_target, peon_hook_groups(runtime), runtime)
+    try:
+        additions = peon_hook_groups(runtime)
+    except ValueError as error:
+        print(f"[WARN] Codex peon-ping hook: {error}")
+        return
+    desired = merge_peon_hooks(hooks_target, additions, runtime)
     if not hooks_target.exists() or hooks_target.read_text(encoding="utf-8") != desired:
         backup(hooks_target, backup_dir)
         save(hooks_target, desired)
@@ -1061,7 +1111,12 @@ def inspect_peon(codex_home: Path, state: dict, *, sync: bool) -> int:
     else:
         hooks = codex_home / "hooks.json"
         existing = hooks.read_text(encoding="utf-8") if hooks.exists() else ""
-        wanted = merge_peon_hooks(hooks, peon_hook_groups(runtime), runtime)
+        try:
+            additions = peon_hook_groups(runtime)
+        except ValueError as error:
+            print(f"[DIFF] Codex peon-ping hook: {error}")
+            return int(not sync)
+        wanted = merge_peon_hooks(hooks, additions, runtime)
         matched = bool(existing) and json.loads(existing) == json.loads(wanted)
         print(f"[{'OK' if matched else 'DIFF'}] Codex peon-ping hooks")
         problems |= not matched

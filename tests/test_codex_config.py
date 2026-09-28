@@ -4,6 +4,9 @@ import importlib.util
 import hashlib
 import io
 import json
+import os
+import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -271,6 +274,60 @@ class CodexMigrationTests(unittest.TestCase):
             self.assertEqual(json.loads(merged), json.loads(codex.merge_peon_hooks(target, additions, runtime)))
             disabled = json.loads(codex.merge_peon_hooks(target, {}, runtime))
             self.assertEqual([{"hooks": [local]}], disabled["hooks"]["Stop"])
+
+    def test_disabled_peon_keeps_unrelated_hook_file_unchanged(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "hooks.json"
+            original = '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"local"}]}]}}\n'
+            target.write_text(original, encoding="utf-8")
+            with mock.patch.object(codex, "peon_manifest", return_value=({}, {})), mock.patch.object(codex, "peon_profile", return_value="none"):
+                codex.install_peon(root, root / "backups", {}, inline_hooks=False)
+            self.assertEqual(original, target.read_text(encoding="utf-8"))
+            self.assertFalse((root / "backups").exists())
+
+    @unittest.skipUnless(os.name == "nt", "Windows hook shell behavior")
+    def test_peon_hook_command_runs_from_windows_shells(self):
+        with tempfile.TemporaryDirectory(prefix="peon hook test ") as temporary:
+            runtime = Path(temporary)
+            (runtime / "codex-peon-hook.py").write_text(
+                "import json, sys\nassert json.load(sys.stdin)['hook_event_name'] == 'UserPromptSubmit'\n",
+                encoding="utf-8",
+            )
+            handler = codex.peon_hook_groups(runtime)["UserPromptSubmit"][0]["hooks"][0]
+            self.assertEqual(handler["command"], handler["commandWindows"])
+            self.assertNotIn('"', handler["command"])
+            payload = json.dumps({"hook_event_name": "UserPromptSubmit"})
+            for shell in (["powershell.exe", "-NoProfile", "-NonInteractive", "-Command"], ["cmd.exe", "/d", "/c"]):
+                with self.subTest(shell=shell[0]):
+                    result = subprocess.run(
+                        [*shell, handler["command"]], input=payload, text=True,
+                        capture_output=True, timeout=15, check=False,
+                    )
+                    self.assertEqual(0, result.returncode, result.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell policy behavior")
+    def test_peon_hook_runs_adapter_with_restricted_policy(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = Path(temporary)
+            adapter = runtime / "adapters" / "codex.ps1"
+            adapter.parent.mkdir()
+            marker = runtime / "received.json"
+            adapter.write_text(
+                f"[Console]::In.ReadToEnd() | Set-Content -LiteralPath '{marker}' -Encoding UTF8\n",
+                encoding="utf-8",
+            )
+            wrapper = runtime / "codex-peon-hook.py"
+            wrapper.write_bytes((codex.ROOT / "scripts" / "codex-peon-hook.py").read_bytes())
+            environment = os.environ.copy()
+            environment["PSExecutionPolicyPreference"] = "Restricted"
+            payload = '{"hook_event_name":"UserPromptSubmit"}'
+            result = subprocess.run(
+                [sys.executable, str(wrapper)], input=payload, text=True,
+                capture_output=True, timeout=15, check=False, env=environment,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(json.loads(payload), json.loads(marker.read_text(encoding="utf-8-sig")))
 
     def test_peon_sound_manifest_rejects_unsafe_or_unhashed_files(self):
         sound = {"file": "sounds/ready.wav", "sha256": "a" * 64}

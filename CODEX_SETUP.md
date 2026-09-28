@@ -50,6 +50,11 @@ Serena 与 peon-ping 的 Codex hooks 合并到同一个 `hooks.json`，不会与
 `config.toml` 内联 hooks 混用。若已有内联 hook 定义，安装器保留它们并
 报告冲突，不擅自转换；`[hooks.state]` 信任记录不算内联定义。新命令 hook
 可能需要在 Codex 的 `/hooks` 中审核并信任。
+Windows 上 peon-ping hook 使用无需引号的本机短路径，兼容 Codex 选用的
+PowerShell 或 cmd。若文件系统无法提供安全的短路径，安装器会报告缺口，
+不会写入一个会在发送消息时报错的 hook。
+Windows peon 脚本仅在启动的子进程中使用 `ExecutionPolicy Bypass`，并按 UTF-8
+读取配置与声音清单，兼容默认限制脚本运行的 PowerShell 设置。
 
 peon-ping 使用独立的 `$CODEX_HOME/cc-config-peon-ping/` 运行时，不依赖
 Claude Code 的安装。安装器按本机选择 `wsl-native`、`linux`、`macos` 或

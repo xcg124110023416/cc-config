@@ -19,7 +19,7 @@ def main() -> int:
         return 0
     if windows:
         shell = shutil.which("powershell") or shutil.which("pwsh")
-        command = [shell, "-NoProfile", "-NonInteractive", "-File", str(adapter)] if shell else []
+        command = [shell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(adapter)] if shell else []
         platform_name = "windows"
     else:
         shell = shutil.which("bash")
